@@ -3,43 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>CS2 Mobile Target</title>
+    <title>CS2 Mobile Buttons</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #111; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #00ff00; font-size: 16px; pointer-events: none; text-shadow: 2px 2px #000; line-height: 1.4; z-index: 10; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #00ff00; font-size: 16px; pointer-events: none; text-shadow: 2px 2px #000; z-index: 10; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; font-size: 20px; color: #00ff00; font-weight: bold; z-index: 5; }
         
-        /* Мобильные элементы управления */
-        .touch-zone { position: absolute; bottom: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center; z-index: 100; }
+        /* Стрелки ходьбы (Слева внизу) */
+        .move-btn { position: absolute; background: rgba(255,255,255,0.15); color: #00ff00; border: 2px solid #00ff00; font-size: 20px; font-weight: bold; border-radius: 10px; display: flex; justify-content: center; align-items: center; width: 50px; height: 50px; z-index: 100; }
+        #btn-w { left: 75px; bottom: 120px; }
+        #btn-a { left: 20px; bottom: 65px; }
+        #btn-s { left: 75px; bottom: 10px; }
+        #btn-d { left: 130px; bottom: 65px; }
         
-        /* Джойстик ходьбы (Слева) */
-        #joystick-bound { left: 30px; width: 110px; height: 110px; background: rgba(255,255,255,0.1); border: 2px solid rgba(0,255,0,0.4); }
-        #joystick-stick { width: 45px; height: 45px; background: rgba(0,255,0,0.6); border-radius: 50%; position: absolute; }
-        
-        /* Кнопка Огонь (Справа внизу) */
-        #fire-btn { right: 30px; bottom: 30px; width: 85px; height: 85px; background: rgba(255, 0, 85, 0.7); border: 3px solid #fff; border-radius: 50%; color: white; font-weight: bold; font-size: 16px; box-shadow: 0 0 15px rgba(255,0,85,0.5); }
-        
-        /* Кнопка Перезарядки (Чуть выше огня) */
-        #reload-btn { right: 40px; bottom: 135px; width: 60px; height: 60px; background: rgba(222, 155, 53, 0.7); border: 2px solid #fff; border-radius: 50%; color: white; font-weight: bold; font-size: 14px; }
+        /* Кнопки боя (Справа внизу) */
+        #btn-fire { position: absolute; right: 20px; bottom: 20px; width: 90px; height: 90px; background: rgba(255, 0, 85, 0.7); border: 3px solid #fff; border-radius: 50%; color: white; font-weight: bold; font-size: 18px; z-index: 100; }
+        #btn-reload { position: absolute; right: 35px; bottom: 125px; width: 60px; height: 60px; background: rgba(222, 155, 53, 0.7); border: 2px solid #fff; border-radius: 50%; color: white; font-weight: bold; z-index: 100; }
     </style>
 </head>
 <body>
 
 <div id="ui">
     ОЧКИ: <span id="score">0</span><br>
-    ПАТРОНЫ: <span id="ammo">30/30</span> <span id="reload-status" style="color: #ff3333; font-weight: bold;"></span>
+    ПАТРОНЫ: <span id="ammo">30/30</span>
 </div>
 <div id="crosshair">+</div>
 
-<!-- Наэкранный джойстик -->
-<div id="joystick-bound" class="touch-zone">
-    <div id="joystick-stick"></div>
-</div>
+<!-- Кнопки ходьбы вместо джойстика -->
+<div id="btn-w" class="move-btn">▲</div>
+<div id="btn-a" class="move-btn">◀</div>
+<div id="btn-s" class="move-btn">▼</div>
+<div id="btn-d" class="move-btn">▶</div>
 
-<!-- Наэкранные кнопки -->
-<button id="fire-btn" class="touch-zone">БАХ</button>
-<button id="reload-btn" class="touch-zone">R</button>
+<button id="btn-fire">БАХ</button>
+<button id="btn-reload">R</button>
 
 <canvas id="gameCanvas"></canvas>
 
@@ -55,7 +53,7 @@
     let targets = [], isShooting = false, shootTimer = 0;
     let audioCtx = null;
 
-    const FOV = Math.PI / 3, HALF_FOV = FOV / 2, NUM_RAYS = 80, MAX_DEPTH = 15, mapSize = 8;
+    const FOV = Math.PI / 3, HALF_FOV = FOV / 2, NUM_RAYS = 70, MAX_DEPTH = 12, mapSize = 8;
     const map = [
         1,1,1,1,1,1,1,1,
         1,0,0,0,0,0,0,1,
@@ -67,97 +65,70 @@
         1,1,1,1,1,1,1,1,
     ];
 
-    // Мобильный джойстик (Логика движения)
-    const bound = document.getElementById('joystick-bound');
-    const stick = document.getElementById('joystick-stick');
-    let moveX = 0, moveY = 0, isMoving = false;
+    // Логика нажатия стрелочек ходьбы
+    let moveW = false, moveA = false, moveS = false, moveD = false;
+    document.getElementById('btn-w').addEventListener('touchstart', () => moveW = true);
+    document.getElementById('btn-w').addEventListener('touchend', () => moveW = false);
+    document.getElementById('btn-s').addEventListener('touchstart', () => moveS = true);
+    document.getElementById('btn-s').addEventListener('touchend', () => moveS = false);
+    document.getElementById('btn-a').addEventListener('touchstart', () => moveA = true);
+    document.getElementById('btn-a').addEventListener('touchend', () => moveA = false);
+    document.getElementById('btn-d').addEventListener('touchstart', () => moveD = true);
+    document.getElementById('btn-d').addEventListener('touchend', () => moveD = false);
 
-    bound.addEventListener('touchstart', moveStick);
-    bound.addEventListener('touchmove', moveStick);
-    bound.addEventListener('touchend', () => {
-        stick.style.left = '32.5px'; stick.style.top = '32.5px';
-        moveX = 0; moveY = 0; isMoving = false;
-    });
-
-    function moveStick(e) {
-        isMoving = true;
-        const rect = bound.getBoundingClientRect();
-        const touch = e.touches[0];
-        let x = touch.clientX - rect.left - 55;
-        let y = touch.clientY - rect.top - 55;
-        const dist = Math.sqrt(x*x + y*y);
-        if (dist > 40) { x = (x / dist) * 40; y = (y / dist) * 40; }
-        stick.style.left = (x + 32.5) + 'px'; stick.style.top = (y + 32.5) + 'px';
-        moveX = x / 40; moveY = y / 40;
-    }
-
-    // Сенсорный обзор (Справа по экрану)
+    // Обзор любым местом на экране (скольжение пальца)
     let lastTouchX = null;
-    window.addEventListener('touchstart', e => {
-        if(e.touches[0].clientX > window.innerWidth / 2) lastTouchX = e.touches[0].clientX;
-    });
+    window.addEventListener('touchstart', e => { if(e.touches[0].clientX > 0) lastTouchX = e.touches[0].clientX; });
     window.addEventListener('touchmove', e => {
-        for(let touch of e.touches) {
-            if(touch.clientX > window.innerWidth / 2) {
-                if(lastTouchX !== null) {
-                    let diff = touch.clientX - lastTouchX;
-                    player.angle += diff * 0.007; // Поворот головы пальцем
-                }
-                lastTouchX = touch.clientX;
-            }
+        if(lastTouchX !== null) {
+            let diff = e.touches[0].clientX - lastTouchX;
+            player.angle += diff * 0.008;
         }
+        lastTouchX = e.touches[0].clientX;
     });
-    window.addEventListener('touchend', e => { if(e.touches.length === 0) lastTouchX = null; });
+    window.addEventListener('touchend', () => lastTouchX = null);
 
-    // Кнопка стрельбы
-    document.getElementById('fire-btn').addEventListener('touchstart', (e) => {
+    // Кнопка стрельбы и перезарядки
+    document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
         e.preventDefault(); if (isReloading || ammo <= 0) return;
         ammo--; document.getElementById("ammo").innerText = `${ammo}/${maxAmmo}`;
-        isShooting = true; shootTimer = 4;
-        playShotSound(); checkHit();
+        isShooting = true; shootTimer = 4; playShotSound(); checkHit();
     });
-
-    // Кнопка перезарядки
-    document.getElementById('reload-btn').addEventListener('touchstart', (e) => {
-        e.preventDefault(); if (ammo < maxAmmo && !isReloading) startReload();
+    document.getElementById('btn-reload').addEventListener('touchstart', (e) => {
+        e.preventDefault(); if (ammo < maxAmmo && !isReloading) {
+            isReloading = true; setTimeout(() => { ammo = maxAmmo; isReloading = false; document.getElementById("ammo").innerText = `${ammo}/${maxAmmo}`; }, 1000);
+        }
     });
 
     function playShotSound() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const bufferSize = audioCtx.sampleRate * 0.12, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), data = buffer.getChannelData(0);
+        const bufferSize = audioCtx.sampleRate * 0.1, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
-        const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(900, audioCtx.currentTime);
-        const gainNode = audioCtx.createGain(); gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+        const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+        const gainNode = audioCtx.createGain(); gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
         noise.connect(filter); filter.connect(gainNode); gainNode.connect(audioCtx.destination); noise.start();
     }
 
-    function startReload() {
-        isReloading = true; document.getElementById("reload-status").innerText = "(...)";
-        setTimeout(() => { ammo = maxAmmo; isReloading = false; document.getElementById("reload-status").innerText = ""; document.getElementById("ammo").innerText = `${ammo}/${maxAmmo}`; }, 1000);
-    }
-
-    function spawnTarget() { while (targets.length < 3) { targets.push({ x: 1.5 + Math.random() * 5, y: 1.5 + Math.random() * 5, size: 0.16, color: '#ff3333' }); } }
+    function spawnTarget() { while (targets.length < 3) { targets.push({ x: 2 + Math.random() * 4, y: 2 + Math.random() * 4, size: 0.18, color: '#ff3333' }); } }
     
     function checkHit() {
         for (let i = targets.length - 1; i >= 0; i--) {
             let t = targets[i], dx = t.x - player.x, dy = t.y - player.y;
             let angleToTarget = Math.atan2(dy, dx) - player.angle;
             while (angleToTarget < -Math.PI) angleToTarget += Math.PI * 2; while (angleToTarget > Math.PI) angleToTarget -= Math.PI * 2;
-            if (Math.abs(angleToTarget) < 0.15) { targets.splice(i, 1); score += 100; document.getElementById("score").innerText = score; spawnTarget(); break; }
+            if (Math.abs(angleToTarget) < 0.16) { targets.splice(i, 1); score += 100; document.getElementById("score").innerText = score; spawnTarget(); break; }
         }
     }
 
     function gameLoop() {
-        if (isMoving) {
-            let speed = 0.04;
-            // Движение вперед-назад относительно вектора джойстика
-            player.x -= Math.cos(player.angle) * moveY * speed; player.y -= Math.sin(player.angle) * moveY * speed;
-            // Стрейфы влево-вправо относительно джойстика
-            player.x -= Math.sin(player.angle) * moveX * speed; player.y += Math.cos(player.angle) * moveX * speed;
-        }
+        let speed = 0.04;
+        if (moveW) { player.x += Math.cos(player.angle) * speed; player.y += Math.sin(player.angle) * speed; }
+        if (moveS) { player.x -= Math.cos(player.angle) * speed; player.y -= Math.sin(player.angle) * speed; }
+        if (moveA) { player.x += Math.sin(player.angle) * speed; player.y -= Math.cos(player.angle) * speed; }
+        if (moveD) { player.x -= Math.sin(player.angle) * speed; player.y += Math.cos(player.angle) * speed; }
+
         if (player.x < 1.1) player.x = 1.1; if (player.x > 6.9) player.x = 6.9; if (player.y < 1.1) player.y = 1.1; if (player.y > 6.9) player.y = 6.9;
-        
         render();
         if (shootTimer > 0) shootTimer--; else isShooting = false;
         requestAnimationFrame(gameLoop);
@@ -170,7 +141,7 @@
         for (let i = 0; i < NUM_RAYS; i++) {
             let distance = 0, hitWall = false, cos = Math.cos(rayAngle), sin = Math.sin(rayAngle);
             while (!hitWall && distance < MAX_DEPTH) {
-                distance += 0.08; let checkX = Math.floor(player.x + cos * distance), checkY = Math.floor(player.y + sin * distance);
+                distance += 0.1; let checkX = Math.floor(player.x + cos * distance), checkY = Math.floor(player.y + sin * distance);
                 if (checkX < 0 || checkX >= mapSize || checkY < 0 || checkY >= mapSize) { hitWall = true; distance = MAX_DEPTH; }
                 else if (map[checkY * mapSize + checkX] > 0) hitWall = true;
             }
@@ -183,3 +154,15 @@
             while (angleToTarget < -Math.PI) angleToTarget += Math.PI * 2; while (angleToTarget > Math.PI) angleToTarget -= Math.PI * 2;
             if (Math.abs(angleToTarget) < HALF_FOV + 0.2 && dist > 0.2) {
                 let screenX = (canvas.width / 2) + (Math.tan(angleToTarget) * (canvas.width / 2)), targetSize = (canvas.height / dist) * t.size;
+                ctx.beginPath(); ctx.arc(screenX, canvas.height / 2, targetSize, 0, Math.PI * 2); ctx.fillStyle = t.color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke(); ctx.closePath();
+            }
+        });
+        ctx.save(); let gunY = canvas.height - 180; if (isShooting) gunY += Math.random() * 15;
+        ctx.fillStyle = "#555"; ctx.fillRect(canvas.width / 2 + 30, gunY + 30, 40, 150);
+        ctx.fillStyle = "#222"; ctx.fillRect(canvas.width / 2 + 42, gunY, 15, 80);
+        ctx.restore();
+    }
+    spawnTarget(); gameLoop();
+</script>
+</body>
+</html>
