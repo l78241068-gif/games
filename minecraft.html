@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мини-Майнкрафт (С музыкой)</title>
+    <style>
+        body { margin: 0; padding: 0; background: #74b9ff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        #game-container { position: relative; background: #87CEEB; border: 4px solid #333; width: 600px; height: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
+        .block { position: absolute; width: 40px; height: 40px; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.1); }
+        .grass { background: #55bc4b; border-top: 5px solid #7cfc00; }
+        .dirt { background: #8b5a2b; }
+        .stone { background: #808080; border: 2px solid #666; }
+        #player { position: absolute; width: 30px; height: 50px; background: #ff4d6d; border: 2px solid #fff; border-radius: 5px; transition: bottom 0.1s, left 0.1s; z-index: 10; }
+        #hud { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; font-size: 12px; pointer-events: none; z-index: 20; }
+        #inventory { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 5px; z-index: 20; }
+        .slot { width: 40px; height: 40px; margin: 0 5px; border: 2px solid #ccc; display: flex; justify-content: center; align-items: center; cursor: pointer; background: rgba(255,255,255,0.2); }
+        .slot.active { border-color: #ff4d6d; background: rgba(255,255,255,0.4); }
+        .slot-inner { width: 25px; height: 25px; }
+        
+        /* Кнопка управления музыкой */
+        #music-btn { position: absolute; top: 10px; right: 10px; background: #ff4d6d; color: white; border: 2px solid #fff; border-radius: 5px; padding: 8px 12px; cursor: pointer; font-weight: bold; z-index: 30; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        #music-btn:hover { background: #ff758f; }
+    </style>
+</head>
+<body>
+
+<!-- Кнопка музыки -->
+<button id="music-btn" onclick="toggleMusic()">🎵 Включить музыку</button>
+
+<div id="game-container">
+    <div id="hud">
+        <b>Управление:</b><br>
+        • A / D — Движение влево/вправо<br>
+        • Пробел — Прыжок<br>
+        • Клик на блок рядом — Сломать<br>
+        • Клик на пустое место — Поставить<br>
+        • Цифры 1, 2, 3 — Выбор блока
+    </div>
+    <div id="player"></div>
+    <div id="blocks-layer"></div>
+    
+    <div id="inventory">
+        <div class="slot active" id="slot-1" onclick="selectBlock('grass')"><div class="slot-inner grass"></div></div>
+        <div class="slot" id="slot-2" onclick="selectBlock('dirt')"><div class="slot-inner dirt"></div></div>
+        <div class="slot" id="slot-3" onclick="selectBlock('stone')"><div class="slot-inner stone"></div></div>
+    </div>
+</div>
+
+<!-- Встроенный плеер для фонового трека -->
+<audio id="bg-audio" loop src="https://soundhelix.com"></audio>
+
+<script>
+    const container = document.getElementById('game-container');
+    const blocksLayer = document.getElementById('blocks-layer');
+    const player = document.getElementById('player');
+    const audio = document.getElementById('bg-audio');
+    const musicBtn = document.getElementById('music-btn');
+    
+    const blockSize = 40;
+    const gridWidth = 15;
+    const gridHeight = 15;
+    
+    let playerX = 60;
+    let playerY = 240;
+    let playerVelocityY = 0;
+    let isJumping = false;
+    let selectedBlockType = 'grass';
+    let isPlaying = false;
+    let world = {};
+
+    // Функция включения/выключения звука
+    function toggleMusic() {
+        if (isPlaying) {
+            audio.pause();
+            musicBtn.innerText = "🎵 Включить музыку";
+        } else {
+            audio.volume = 0.3; // Ставим комфортную громкость (30%)
+            audio.play().catch(err => console.log("Браузер заблокировал автовоспроизведение"));
+            musicBtn.innerText = "🔇 Выключить музыку";
+        }
+        isPlaying = !isPlaying;
+    }
+
+    function generateWorld() {
+        blocksLayer.innerHTML = '';
+        for (let x = 0; x < gridWidth; x++) {
+            for (let y = 0; y < 5; y++) {
+                let type = 'dirt';
+                if (y === 4) type = 'grass';
+                if (y < 2) type = 'stone';
+                createBlock(x, y, type);
+            }
+        }
+    }
+
+    function createBlock(x, y, type) {
+        const block = document.createElement('div');
+        block.className = `block ${type}`;
+        block.style.left = (x * blockSize) + 'px';
+        block.style.bottom = (y * blockSize) + 'px';
+        block.dataset.x = x;
+        block.dataset.y = y;
+        
+        block.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeBlock(x, y);
+        });
+        
+        blocksLayer.appendChild(block);
+        world[`${x},${y}`] = { element: block, type: type };
+    }
+
+    function removeBlock(x, y) {
+        if (world[`${x},${y}`]) {
+            world[`${x},${y}`].element.remove();
+            delete world[`${x},${y}`];
+        }
+    }
+
+    container.addEventListener('click', (e) => {
+        const rect = container.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = rect.bottom - e.clientY;
+        
+        const gridX = Math.floor(clickX / blockSize);
+        const gridY = Math.floor(clickY / blockSize);
+        
+        if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
+            if (!world[`${gridX},${gridY}`]) {
+                createBlock(gridX, gridY, selectedBlockType);
+            }
+        }
+    });
+
+    function selectBlock(type) {
+        selectedBlockType = type;
+        document.querySelectorAll('.slot').forEach(s => s.classList.remove('active'));
+        if(type === 'grass') document.getElementById('slot-1').classList.add('active');
+        if(type === 'dirt') document.getElementById('slot-2').classList.add('active');
+        if(type === 'stone') document.getElementById('slot-3').classList.add('active');
+    }
+
+    function updatePlayer() {
+        playerVelocityY -= 1;
+        playerY += playerVelocityY;
+
+        let currentGridX = Math.floor((playerX + 15) / blockSize);
+        let currentGridY = Math.floor(playerY / blockSize);
+
+        if (world[`${currentGridX},${currentGridY}`] || playerY <= 0) {
+            playerY = (currentGridY + 1) * blockSize;
+            if (playerY <= 0) playerY = 160;
+            playerVelocityY = 0;
+            isJumping = false;
+        }
+
+        player.style.left = playerX + 'px';
+        player.style.bottom = playerY + 'px';
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+            if (playerX < (gridWidth * blockSize) - 30) playerX += 15;
+        }
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+            if (playerX > 0) playerX -= 15;
+        }
+        if ((e.code === 'Space' || e.code === 'KeyW') && !isJumping) {
+            playerVelocityY = 12;
+            isJumping = true;
+        }
+        if (e.code === 'Digit1') selectBlock('grass');
+        if (e.code === 'Digit2') selectBlock('dirt');
+        if (e.code === 'Digit3') selectBlock('stone');
+    });
+
+    generateWorld();
+    setInterval(updatePlayer, 30);
+</script>
+
+</body>
+</html>

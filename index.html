@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Секретный сайт</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ffe5ec, #ffc2d1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h2 {
+            color: #ff4d6d;
+            margin-bottom: 20px;
+        }
+        input {
+            width: 80%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ffb3c1;
+            border-radius: 10px;
+            outline: none;
+            text-align: center;
+            transition: 0.3s;
+        }
+        input:focus {
+            border-color: #ff4d6d;
+        }
+        button {
+            margin-top: 15px;
+            background: #ff4d6d;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #ff758f;
+        }
+        .hidden-message {
+            display: none;
+            font-size: 28px;
+            color: #ff4d6d;
+            font-weight: bold;
+            animation: fadeIn 1s ease-in-out;
+        }
+        .error-message {
+            color: #d90429;
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- Блок ввода пароля -->
+    <div id="login-box">
+        <h2>Введите секретный код</h2>
+        <input type="password" id="password-input" placeholder="****" maxlength="4">
+        <br>
+        <button onclick="checkPassword()">Войти</button>
+        <div id="error" class="error-message">Неверный код. Попробуй еще раз!</div>
+    </div>
+
+    <!-- Блок с секретным сообщением -->
+    <div id="secret-message" class="hidden-message">
+        ❤️ я люблю настю ❤️
+    </div>
+</div>
+
+<script>
+    function checkPassword() {
+        const input = document.getElementById('password-input').value;
+        const loginBox = document.getElementById('login-box');
+        const secretMessage = document.getElementById('secret-message');
+        const error = document.getElementById('error');
+
+        // Проверка правильности пароля
+        if (input === '2312') {
+            loginBox.style.display = 'none';
+            secretMessage.style.display = 'block';
+        } else {
+            error.style.display = 'block';
+            document.getElementById('password-input').value = '';
+        }
+    }
+
+    // Позволяет отправлять форму по нажатию Enter
+    document.getElementById('password-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            checkPassword();
+        }
+    });
+</script>
+
+</body>
+</html>
