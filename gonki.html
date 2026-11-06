@@ -41,10 +41,10 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    let gameActive = true, speed = 0, distance = 0, playerX = 0, progress = 0;
+    let gameActive = true, speed = 0, distance = 0, carX = 0, progress = 0;
     const maxSpeed = 40;
 
-    let keys = {}, pressGas = false, pressLeft = false, pressRight = false;
+    let pressGas = false, pressLeft = false, pressRight = false;
     let audioCtx = null, synthInterval = null, isMusicPlaying = false;
 
     // Генерация футуристичной 3D трассы
@@ -57,14 +57,15 @@
         track.push({ x: Math.sin(i * 0.04) * 300, z: -i * 120, curve: curve });
     }
 
-    // Музыкальный киберпанк-синтезатор (не требует файлов на диске)
+    // Музыкальный киберпанк-синтезатор (теперь с правильными нотами)
     function startMusic() {
         if (isMusicPlaying) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         isMusicPlaying = true;
         document.getElementById("music-btn").innerText = "🔊 Звук: Вкл";
         let step = 0;
-        const notes =;
+        const notes =; // Готовые неоновые басы
+        
         synthInterval = setInterval(() => {
             if (!isMusicPlaying) return;
             // Бочка (Бит)
@@ -92,13 +93,13 @@
         else { startMusic(); }
     }
 
-    // Слушатели для телефона
-    document.getElementById('btn-gas').addEventListener('touchstart', () => { pressGas = true; startMusic(); });
-    document.getElementById('btn-gas').addEventListener('touchend', () => pressGas = false);
-    document.getElementById('btn-left').addEventListener('touchstart', () => pressLeft = true);
-    document.getElementById('btn-left').addEventListener('touchend', () => pressLeft = false);
-    document.getElementById('btn-right').addEventListener('touchstart', () => pressRight = true);
-    document.getElementById('btn-right').addEventListener('touchend', () => pressRight = false);
+    // Слушатели сенсорного экрана для телефона
+    document.getElementById('btn-gas').addEventListener('touchstart', (e) => { e.preventDefault(); pressGas = true; startMusic(); });
+    document.getElementById('btn-gas').addEventListener('touchend', (e) => { e.preventDefault(); pressGas = false; });
+    document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); pressLeft = true; });
+    document.getElementById('btn-left').addEventListener('touchend', (e) => { e.preventDefault(); pressLeft = false; });
+    document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); pressRight = true; });
+    document.getElementById('btn-right').addEventListener('touchend', (e) => { e.preventDefault(); pressRight = false; });
 
     function project(x, y, z, camX, camY, camZ, fov, width, height) {
         let tx = x - camX; let ty = y - camY; let tz = z - camZ;
