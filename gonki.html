@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>3D Mobile Racing</title>
+    <title>3D Neon Racing Mobile</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #050508; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 18px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 20px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; }
         
-        /* Кнопки управления на экране */
+        /* Кнопки управления на экране телефона */
         .btn { position: absolute; bottom: 25px; background: rgba(0,0,0,0.6); color: #00ffff; border: 2px solid #00ffff; font-size: 24px; font-weight: bold; border-radius: 15px; display: flex; justify-content: center; align-items: center; z-index: 100; box-shadow: 0 0 10px #00ffff; }
         #btn-left { left: 25px; width: 75px; height: 75px; }
         #btn-right { left: 115px; width: 75px; height: 75px; }
         #btn-gas { right: 25px; width: 90px; height: 90px; background: rgba(255,0,255,0.4); border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
+        
+        /* Переключатель музыки */
+        #music-btn { position: absolute; top: 15px; right: 15px; background: #000; color: #ff00ff; border: 2px solid #ff00ff; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px #ff00ff; z-index: 100; }
     </style>
 </head>
 <body>
@@ -23,7 +26,8 @@
     ДИСТАНЦИЯ: <span id="distance">0</span> М
 </div>
 
-<!-- Сенсорные кнопки для пальцев -->
+<button id="music-btn" onclick="toggleMusic()">🎵 Звук: Выкл</button>
+
 <div id="btn-left" class="btn">◀</div>
 <div id="btn-right" class="btn">▶</div>
 <div id="btn-gas" class="btn">ГАЗ</div>
@@ -37,114 +41,140 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    let gameActive = true, speed = 0, distance = 0, playerX = 0, trackPosition = 0;
-    const maxSpeed = 250;
+    let gameActive = true, speed = 0, distance = 0, playerX = 0, progress = 0;
+    const maxSpeed = 40;
 
-    const segmentLength = 200, rumblesPerSegment = 3;
-    let segments = [], trackLength = 0;
+    let keys = {}, pressGas = false, pressLeft = false, pressRight = false;
+    let audioCtx = null, synthInterval = null, isMusicPlaying = false;
 
-    function generateTrack() {
-        segments = [];
-        for (let i = 0; i < 400; i++) {
-            let curve = 0;
-            if (i > 40 && i < 90) curve = 2;    
-            if (i > 130 && i < 200) curve = -2.5;  
-            if (i > 240 && i < 300) curve = 1.5; 
-            segments.push({
-                index: i,
-                p1: { world: { z: i * segmentLength }, screen: { x: 0, y: 0, w: 0 } },
-                p2: { world: { z: (i + 1) * segmentLength }, screen: { x: 0, y: 0, w: 0 } },
-                curve: curve,
-                color: Math.floor(i / rumblesPerSegment) % 2 ? 
-                    { grass: '#051a05', road: '#1a1a24', rumble: '#00ffff' } : 
-                    { grass: '#08080f', road: '#15151f', rumble: '#ff00ff' }
-            });
-        }
-        trackLength = segments.length * segmentLength;
+    // Генерация футуристичной 3D трассы
+    let track = [];
+    for (let i = 0; i < 800; i++) {
+        let curve = 0;
+        if (i > 60 && i < 140) curve = 2;
+        if (i > 200 && i < 300) curve = -3;
+        if (i > 400 && i < 500) curve = 2.5;
+        track.push({ x: Math.sin(i * 0.04) * 300, z: -i * 120, curve: curve });
     }
 
-    // Переменные нажатий кнопок
-    let pressGas = false, pressLeft = false, pressRight = false;
+    // Музыкальный киберпанк-синтезатор (не требует файлов на диске)
+    function startMusic() {
+        if (isMusicPlaying) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        isMusicPlaying = true;
+        document.getElementById("music-btn").innerText = "🔊 Звук: Вкл";
+        let step = 0;
+        const notes =;
+        synthInterval = setInterval(() => {
+            if (!isMusicPlaying) return;
+            // Бочка (Бит)
+            if (step % 2 === 0) {
+                let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            }
+            // Мелодия (меняет частоту от скорости!)
+            let sOsc = audioCtx.createOscillator(); let sGain = audioCtx.createGain();
+            sOsc.type = 'sawtooth';
+            sOsc.frequency.setValueAtTime(notes[step % notes.length] * (1 + speed * 0.01), audioCtx.currentTime);
+            sGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+            sGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            sOsc.connect(sGain); sGain.connect(audioCtx.destination); sOsc.start(); sOsc.stop(audioCtx.currentTime + 0.15);
+            step++;
+        }, 160);
+    }
 
-    // Вешаем события касания пальцем для телефона
-    document.getElementById('btn-gas').addEventListener('touchstart', () => pressGas = true);
+    function toggleMusic() {
+        if (isMusicPlaying) { clearInterval(synthInterval); isMusicPlaying = false; document.getElementById("music-btn").innerText = "🎵 Звук: Выкл"; }
+        else { startMusic(); }
+    }
+
+    // Слушатели для телефона
+    document.getElementById('btn-gas').addEventListener('touchstart', () => { pressGas = true; startMusic(); });
     document.getElementById('btn-gas').addEventListener('touchend', () => pressGas = false);
     document.getElementById('btn-left').addEventListener('touchstart', () => pressLeft = true);
     document.getElementById('btn-left').addEventListener('touchend', () => pressLeft = false);
     document.getElementById('btn-right').addEventListener('touchstart', () => pressRight = true);
     document.getElementById('btn-right').addEventListener('touchend', () => pressRight = false);
 
-    function project(point, cameraX, cameraY, cameraZ, cameraDepth, width, height, roadWidth) {
-        let tx = point.world.z - cameraZ;
-        if (tx <= 0) return;
-        let scale = cameraDepth / tx;
-        point.screen.x = Math.round((width / 2) + (scale * (point.world.x - cameraX) * width / 2));
-        point.screen.y = Math.round((height / 2) - (scale * (point.world.y - cameraY) * height / 2));
-        point.screen.w = Math.round(scale * roadWidth * width / 2);
+    function project(x, y, z, camX, camY, camZ, fov, width, height) {
+        let tx = x - camX; let ty = y - camY; let tz = z - camZ;
+        if (tz >= 0) return null;
+        let scale = fov / -tz;
+        return { x: width / 2 + tx * scale, y: height / 2 - ty * scale, scale: scale };
     }
 
     function gameLoop() {
-        if (pressGas) speed += 2.5; else speed -= 1.5;
-        if (speed > 0) {
-            let turnSpeed = 0.04 * (speed / maxSpeed);
-            if (pressLeft) playerX -= turnSpeed;
-            if (pressRight) playerX += turnSpeed;
-        }
-
+        if (pressGas) speed += 0.4; else speed -= 0.6;
         speed = Math.max(0, Math.min(speed, maxSpeed));
-        trackPosition += speed * 2;
-        distance += Math.round(speed / 12);
 
-        if (trackPosition >= trackLength) trackPosition -= trackLength;
+        if (pressLeft) carX -= 1.5 * (speed / maxSpeed);
+        if (pressRight) carX += 1.5 * (speed / maxSpeed);
 
-        document.getElementById("speed").innerText = Math.round(speed);
+        progress += speed * 4;
+        distance += Math.round(speed * 0.2);
+
+        document.getElementById("speed").innerText = Math.round(speed * 6);
         document.getElementById("distance").innerText = distance;
 
-        render();
-        requestAnimationFrame(gameLoop);
-    }
+        // Рисуем 3D неоновый мир
+        ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0d0d1a'; ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
 
-    function render() {
-        ctx.fillStyle = "#050508"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        let width = canvas.width, height = canvas.height, roadWidth = 2000, cameraDepth = 0.84;
-        let playerSegment = Math.floor(trackPosition / segmentLength);
-        let baseSegment = segments[playerSegment % segments.length];
-        let dx = -baseSegment.curve * ((trackPosition % segmentLength) / segmentLength), currentX = 0, maxy = height;
+        let camZ = -progress;
+        let startSeg = Math.floor(progress / 120);
+        if (startSeg >= track.length - 40) progress = 0;
 
-        for (let n = 0; n < 80; n++) {
-            let segment = segments[(playerSegment + n) % segments.length];
-            currentX += dx; dx += segment.curve;
-            let camX = playerX * roadWidth - currentX, camY = 1500;
-            let camZ = trackPosition - (segment.index < playerSegment ? trackLength : 0);
+        let camX = track[startSeg].x + carX * 100;
+        let camY = 500; let fov = 400;
 
-            segment.p1.world.x = 0; segment.p1.world.y = 0;
-            segment.p2.world.x = 0; segment.p2.world.y = 0;
-            project(segment.p1, camX, camY, camZ, cameraDepth, width, height, roadWidth);
-            project(segment.p2, camX, camY, camZ, cameraDepth, width, height, roadWidth);
+        let maxRenderY = canvas.height;
+        for (let i = startSeg + 40; i >= startSeg; i--) {
+            if (i >= track.length) continue;
+            let p = track[i];
+            let pProjLeft = project(p.x - 200, 0, p.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+            let pProjRight = project(p.x + 200, 0, p.z, camX, camY, camZ, fov, canvas.width, canvas.height);
 
-            if (segment.p1.screen.y >= maxy || segment.p1.screen.y < height / 2) continue;
-            let p1 = segment.p1.screen, p2 = segment.p2.screen;
+            if (!pProjLeft || !pProjRight) continue;
 
-            ctx.fillStyle = segment.color.grass; ctx.fillRect(0, p2.y, width, p1.y - p2.y);
-            let r1 = p1.w * 0.1, r2 = p2.w * 0.1;
-            ctx.fillStyle = segment.color.rumble;
-            ctx.beginPath(); ctx.moveTo(p1.x - p1.w - r1, p1.y); ctx.lineTo(p1.x - p1.w, p1.y); ctx.lineTo(p2.x - p2.w, p2.y); ctx.lineTo(p2.x - p2.w - r2, p2.y); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(p1.x + p1.w + r1, p1.y); ctx.lineTo(p1.x + p1.w, p1.y); ctx.lineTo(p2.x + p2.w, p2.y); ctx.lineTo(p2.x + p2.w - r2, p2.y); ctx.fill();
-            ctx.fillStyle = segment.color.road;
-            ctx.beginPath(); ctx.moveTo(p1.x - p1.w, p1.y); ctx.lineTo(p1.x + p1.w, p1.y); ctx.lineTo(p2.x + p2.w, p2.y); ctx.lineTo(p2.x - p2.w, p2.y); ctx.fill();
-            maxy = p1.y;
+            ctx.strokeStyle = (i % 2 === 0) ? '#00ffff' : '#ff00ff';
+            ctx.lineWidth = Math.max(1, pProjLeft.scale * 4);
+            if (i < startSeg + 40 && pProjLeft.y < maxRenderY) {
+                if (i > startSeg) {
+                    let prev = track[i-1];
+                    let prevProjL = project(prev.x - 200, 0, prev.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+                    let prevProjR = project(prev.x + 200, 0, prev.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+                    if (prevProjL && prevProjR) {
+                        ctx.fillStyle = '#111122'; ctx.beginPath();
+                        ctx.moveTo(pProjLeft.x, pProjLeft.y); ctx.lineTo(pProjRight.x, pProjRight.y);
+                        ctx.lineTo(prevProjR.x, prevProjR.y); ctx.lineTo(prevProjL.x, prevProjL.y); ctx.fill();
+                        
+                        ctx.beginPath(); ctx.moveTo(pProjLeft.x, pProjLeft.y); ctx.lineTo(prevProjL.x, prevProjL.y); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(pProjRight.x, pProjRight.y); ctx.lineTo(prevProjR.x, prevProjR.y); ctx.stroke();
+                    }
+                }
+            }
         }
 
-        if (speed > 0) playerX -= (speed / maxSpeed) * baseSegment.curve * 0.005;
+        let currentTrackSeg = track[startSeg];
+        if (speed > 0 && currentTrackSeg) { carX -= currentTrackSeg.curve * 0.002 * (speed / maxSpeed); }
 
-        // Рисуем машину
-        let carW = 150, carH = 65, carX = width / 2 - carW / 2, carY = height - 120;
-        ctx.fillStyle = "#ff00ff"; ctx.fillRect(carX, carY, carW, carH);
-        ctx.fillStyle = "#00ffff"; ctx.fillRect(carX + 15, carY - 20, carW - 30, 20);
-        ctx.fillStyle = "#111"; ctx.fillRect(carX - 5, carY + carH - 25, 20, 35); ctx.fillRect(carX + carW - 15, carY + carH - 25, 20, 35);
+        // Машина на экране
+        ctx.save();
+        let carW = 140, carH = 55;
+        let cx = canvas.width / 2 - carW / 2;
+        let cy = canvas.height - 140 + Math.sin(Date.now()*0.05)*(speed*0.1);
+        ctx.fillStyle = '#ff00ff'; ctx.fillRect(cx, cy, carW, carH);
+        ctx.fillStyle = '#00ffff'; ctx.fillRect(cx + 20, cy - 15, carW - 40, 15);
+        ctx.fillStyle = '#111'; ctx.fillRect(cx - 5, cy + carH - 20, 15, 25); ctx.fillRect(cx + carW - 10, cy + carH - 20, 15, 25);
+        ctx.restore();
+
+        requestAnimationFrame(gameLoop);
     }
-
-    generateTrack(); gameLoop();
+    gameLoop();
 </script>
 </body>
 </html>
