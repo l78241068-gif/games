@@ -3,20 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>3D Neon Racing Mobile</title>
+    <title>3D Neon Racing Fixed</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #050508; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 20px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; }
-        
-        /* Кнопки управления на экране телефона */
         .btn { position: absolute; bottom: 25px; background: rgba(0,0,0,0.6); color: #00ffff; border: 2px solid #00ffff; font-size: 24px; font-weight: bold; border-radius: 15px; display: flex; justify-content: center; align-items: center; z-index: 100; box-shadow: 0 0 10px #00ffff; }
         #btn-left { left: 25px; width: 75px; height: 75px; }
         #btn-right { left: 115px; width: 75px; height: 75px; }
         #btn-gas { right: 25px; width: 90px; height: 90px; background: rgba(255,0,255,0.4); border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
-        
-        /* Переключатель музыки */
-        #music-btn { position: absolute; top: 15px; right: 15px; background: #000; color: #ff00ff; border: 2px solid #ff00ff; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px #ff00ff; z-index: 100; }
     </style>
 </head>
 <body>
@@ -25,8 +20,6 @@
     СКОРОСТЬ: <span id="speed">0</span> КМ/Ч<br>
     ДИСТАНЦИЯ: <span id="distance">0</span> М
 </div>
-
-<button id="music-btn" onclick="toggleMusic()">🎵 Звук: Выкл</button>
 
 <div id="btn-left" class="btn">◀</div>
 <div id="btn-right" class="btn">▶</div>
@@ -43,11 +36,9 @@
 
     let gameActive = true, speed = 0, distance = 0, carX = 0, progress = 0;
     const maxSpeed = 40;
-
     let pressGas = false, pressLeft = false, pressRight = false;
-    let audioCtx = null, synthInterval = null, isMusicPlaying = false;
+    let audioCtx = null, motorOsc = null, motorGain = null;
 
-    // Генерация футуристичной 3D трассы
     let track = [];
     for (let i = 0; i < 800; i++) {
         let curve = 0;
@@ -57,44 +48,30 @@
         track.push({ x: Math.sin(i * 0.04) * 300, z: -i * 120, curve: curve });
     }
 
-    // Музыкальный киберпанк-синтезатор (теперь с правильными нотами)
-    function startMusic() {
-        if (isMusicPlaying) return;
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        isMusicPlaying = true;
-        document.getElementById("music-btn").innerText = "🔊 Звук: Вкл";
-        let step = 0;
-        const notes =; // Готовые неоновые басы
+    // Запуск звука мотора
+    function startMotorSound() {
+        if (motorOsc) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        motorOsc = audioCtx.createOscillator();
+        motorGain = audioCtx.createGain();
         
-        synthInterval = setInterval(() => {
-            if (!isMusicPlaying) return;
-            // Бочка (Бит)
-            if (step % 2 === 0) {
-                let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
-                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-            }
-            // Мелодия (меняет частоту от скорости!)
-            let sOsc = audioCtx.createOscillator(); let sGain = audioCtx.createGain();
-            sOsc.type = 'sawtooth';
-            sOsc.frequency.setValueAtTime(notes[step % notes.length] * (1 + speed * 0.01), audioCtx.currentTime);
-            sGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
-            sGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-            sOsc.connect(sGain); sGain.connect(audioCtx.destination); sOsc.start(); sOsc.stop(audioCtx.currentTime + 0.15);
-            step++;
-        }, 160);
+        motorOsc.type = 'sawtooth';
+        motorOsc.frequency.setValueAtTime(60, audioCtx.currentTime); // Низкий гул
+        
+        // Фильтр для эффекта выхлопа
+        let filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(200, audioCtx.currentTime);
+        
+        motorGain.gain.setValueAtTime(0.0, audioCtx.currentTime); // Сначала тихо
+        
+        motorOsc.connect(filter);
+        filter.connect(motorGain);
+        motorGain.connect(audioCtx.destination);
+        motorOsc.start();
     }
 
-    function toggleMusic() {
-        if (isMusicPlaying) { clearInterval(synthInterval); isMusicPlaying = false; document.getElementById("music-btn").innerText = "🎵 Звук: Выкл"; }
-        else { startMusic(); }
-    }
-
-    // Слушатели сенсорного экрана для телефона
-    document.getElementById('btn-gas').addEventListener('touchstart', (e) => { e.preventDefault(); pressGas = true; startMusic(); });
+    document.getElementById('btn-gas').addEventListener('touchstart', (e) => { e.preventDefault(); pressGas = true; startMotorSound(); });
     document.getElementById('btn-gas').addEventListener('touchend', (e) => { e.preventDefault(); pressGas = false; });
     document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); pressLeft = true; });
     document.getElementById('btn-left').addEventListener('touchend', (e) => { e.preventDefault(); pressLeft = false; });
@@ -121,7 +98,12 @@
         document.getElementById("speed").innerText = Math.round(speed * 6);
         document.getElementById("distance").innerText = distance;
 
-        // Рисуем 3D неоновый мир
+        // Динамический рев мотора от скорости
+        if (motorOsc && motorGain) {
+            motorOsc.frequency.setValueAtTime(50 + speed * 4, audioCtx.currentTime);
+            motorGain.gain.setValueAtTime(pressGas ? 0.15 : 0.05, audioCtx.currentTime);
+        }
+
         ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#0d0d1a'; ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
 
@@ -163,7 +145,6 @@
         let currentTrackSeg = track[startSeg];
         if (speed > 0 && currentTrackSeg) { carX -= currentTrackSeg.curve * 0.002 * (speed / maxSpeed); }
 
-        // Машина на экране
         ctx.save();
         let carW = 140, carH = 55;
         let cx = canvas.width / 2 - carW / 2;
