@@ -20,11 +20,11 @@
         }
         .container {
             background: rgba(255, 255, 255, 0.03);
-            padding: 30px;
+            padding: 25px;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.7);
             text-align: center;
-            max-width: 500px;
+            max-width: 450px;
             width: 100%;
             border: 1px solid rgba(0, 255, 255, 0.2);
             backdrop-filter: blur(10px);
@@ -33,71 +33,52 @@
             color: #00ffff;
             font-size: 28px;
             margin-bottom: 5px;
-            text-shadow: 0 0 15px rgba(0,255,255,0.4);
+            text-shadow: 0 0 15px #00ffff;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
-        p {
-            color: #888;
-            margin-bottom: 30px;
-            font-size: 15px;
-        }
-        .menu-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+        p { color: #888; margin-bottom: 25px; font-size: 14px; }
+        .menu-grid { display: flex; flex-direction: column; gap: 12px; }
         .game-btn {
             display: block;
             text-decoration: none;
-            padding: 16px;
-            font-size: 18px;
+            padding: 15px;
+            font-size: 17px;
             font-weight: bold;
             border-radius: 12px;
             color: #fff;
-            transition: 0.3s ease;
+            transition: 0.2s ease;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        .btn-love {
-            background: linear-gradient(90deg, #ff4d6d, #ff758f);
-            border: 1px solid #ff4d6d;
-        }
-        .btn-love:hover { box-shadow: 0 0 20px #ff4d6d; transform: translateY(-2px); }
-        .btn-mine {
-            background: linear-gradient(90deg, #55bc4b, #7cfc00);
-            color: #111;
-            border: 1px solid #7cfc00;
-        }
-        .btn-mine:hover { box-shadow: 0 0 20px #7cfc00; transform: translateY(-2px); }
-        .btn-cs {
-            background: linear-gradient(90deg, #de9b35, #f68b1f);
-            border: 1px solid #f68b1f;
-        }
-        .btn-cs:hover { box-shadow: 0 0 20px #f68b1f; transform: translateY(-2px); }
-        .btn-race {
-            background: linear-gradient(90deg, #00b4db, #0083b0);
-            border: 1px solid #00b4db;
-        }
-        .btn-race:hover { box-shadow: 0 0 20px #00b4db; transform: translateY(-2px); }
+        .game-btn:hover { transform: translateY(-2px); }
+        .btn-love { background: linear-gradient(90deg, #ff4d6d, #ff758f); border: 1px solid #ff4d6d; }
+        .btn-mine { background: linear-gradient(90deg, #55bc4b, #7cfc00); color: #111; border: 1px solid #7cfc00; }
+        .btn-cs { background: linear-gradient(90deg, #de9b35, #f68b1f); border: 1px solid #f68b1f; }
+        .btn-race { background: linear-gradient(90deg, #00b4db, #0083b0); border: 1px solid #00b4db; }
+        .btn-egg { background: linear-gradient(90deg, #00ffff, #0083b0); border: 1px solid #00ffff; color: #fff; }
+        .btn-click { background: linear-gradient(90deg, #ff00ff, #7300ff); border: 1px solid #ff00ff; color: #fff; }
+        .btn-stack { background: linear-gradient(90deg, #ff007f, #ffaa00); border: 1px solid #ff007f; color: #fff; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Игры Лёвы</h1>
-    <p>Выбери игру для запуска на телефоне:</p>
+    <p>Выбери проект для запуска на телефоне:</p>
     
     <div class="menu-grid">
         <a href="index.html" class="game-btn btn-love">❤️ Секрет для Насти</a>
         <a href="minecraft.html" class="game-btn btn-mine">🧱 Мини-Майнкрафт</a>
         <a href="cs2.html" class="game-btn btn-cs">🔫 Тренажер CS2</a>
-        <a href="gonki.html" class="game-btn btn-race">🏎️ 3D Неон Гонки</a>
+        <a href="3drace.html" class="game-btn btn-race">🏎️ 3D Неон Гонки</a>
+        <!-- Укради яйцо и под ним кликер -->
+        <a href="egg.html" class="game-btn btn-egg">🥚 Укради Яйцо</a>
+        <a href="clicker.html" class="game-btn btn-click">💾 Кибер Кликер</a>
+        <a href="stacker.html" class="game-btn btn-stack">🧱 Неоновый Стекер</a>
     </div>
 </div>
 
 </body>
 </html>
-<a href="egg.html" class="game-btn btn-cs" style="background: linear-gradient(90deg, #00ffff, #0083b0); border-color:#00ffff;">🥚 Укради Яйцо</a>
-<a href="clicker.html" class="game-btn btn-mine" style="background: linear-gradient(90deg, #ff00ff, #7300ff); border-color:#ff00ff; color:#fff;">💾 Кибер Кликер</a>
