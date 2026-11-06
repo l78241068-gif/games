@@ -3,83 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>Neon Stacker</title>
+    <title>Neon Stacker Mobile</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #06060c; font-family: sans-serif; user-select: none; touch-action: none; color: #fff; }
-        #game { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px; box-sizing: border-box; }
-        #score { font-size: 32px; font-weight: bold; color: #00ffff; text-shadow: 0 0 15px rgba(0,255,255,0.5); margin-top: 10px; }
-        canvas { background: #0a0a14; border: 2px solid #333; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.6); max-width: 100%; max-height: 65vh; }
-        #tap-btn { width: 100%; max-width: 300px; height: 75px; background: linear-gradient(90deg, #ff00ff, #00ffff); border: 2px solid #fff; border-radius: 15px; color: #fff; font-size: 20px; font-weight: bold; text-shadow: 0 2px 5px #000; box-shadow: 0 0 15px rgba(0,255,255,0.3); display: flex; justify-content: center; align-items: center; cursor: pointer; margin-bottom: 15px; -webkit-tap-highlight-color: transparent; }
-        .overlay { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1000; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
-        .restart-btn { background:#00ffff; color:#000; border:none; padding:12px 30px; font-size:18px; font-weight:bold; border-radius:10px; margin-top:15px; }
+        #game { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 10px; box-sizing: border-box; position: relative; }
+        #score { font-size: 28px; font-weight: bold; color: #00ffff; text-shadow: 0 0 15px rgba(0,255,255,0.5); margin-top: 15px; margin-bottom: 10px; pointer-events: none; z-index: 10; }
+        canvas { background: #0a0a14; border: 2px solid #333; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.6); max-width: 100%; max-height: 80vh; }
+        
+        /* Подсказка прямо на экране */
+        #hint { position: absolute; bottom: 20px; font-size: 14px; color: #555; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
+        
+        .overlay { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .restart-btn { background: #00ffff; color: #000; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 12px; margin-top: 20px; box-shadow: 0 0 15px #00ffff; }
     </style>
 </head>
 <body>
+
 <div id="game">
     <div id="score">БЛОКОВ: 0</div>
-    <canvas id="stackCanvas" width="360" height="450"></canvas>
-    <div id="tap-btn">СТАВЬ БЛОК!</div>
+    <canvas id="stackCanvas" width="360" height="480"></canvas>
+    <div id="hint">Тапай в любое место экрана, чтобы поставить блок!</div>
 </div>
+
+<!-- Экран проигрыша -->
 <div id="game-over" class="overlay">
-    <h1 style="color:#ff0055;">БАШНЯ УПАЛА! 💥</h1>
-    <p id="final-score" style="font-size:20px;"></p>
-    <button class="restart-btn" onclick="resetGame()">ЕЩЕ РАЗ</button>
+    <h1 style="color:#ff0055; text-shadow: 0 0 15px #ff0055;">БАШНЯ УПАЛА! 💥</h1>
+    <p id="final-score" style="font-size:22px; color: #00ffff;"></p>
+    <button class="restart-btn" onclick="event.stopPropagation(); resetGame();">ЕЩЕ РАЗ</button>
 </div>
+
 <script>
     const canvas = document.getElementById("stackCanvas"), ctx = canvas.getContext("2d");
     let blocks = [], score = 0, gameActive = true, speed = 3, dir = 1;
     let currentBlock = { x: 50, w: 140, color: '#ff00ff' };
     let audioCtx = null;
+
     function playTone(f) {
         if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let o = audioCtx.createOscillator(), g = audioCtx.createGain();
         o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(f, audioCtx.currentTime);
         g.gain.setValueAtTime(0.1, audioCtx.currentTime); o.start(); o.stop(audioCtx.currentTime + 0.08);
     }
+
     function initGame() {
         blocks = [{ x: 110, w: 140, color: '#00ffff' }];
         currentBlock = { x: 10, w: 140, color: '#ff00ff' };
         score = 0; gameActive = true; speed = 3;
+        document.getElementById('score').innerText = "БЛОКОВ: 0";
         document.getElementById('game-over').style.display = 'none';
     }
-    document.getElementById('tap-btn').addEventListener('touchstart', (e) => {
-        e.preventDefault(); if(!gameActive) return;
+
+    // ТАП В ЛЮБОЕ МЕСТО ЭКРАНА СТАВИТ БЛОК
+    window.addEventListener('touchstart', (e) => {
+        if (!gameActive) return;
+        e.preventDefault();
+
         let lastBlock = blocks[blocks.length - 1];
         let diff = currentBlock.x - lastBlock.x;
+
+        // Если полностью промахнулся мимо прошлого блока
         if (Math.abs(diff) >= lastBlock.w) {
             gameActive = false; playTone(150);
-            document.getElementById('final-score').innerText = "Твой результат: " + score + " блоков";
+            document.getElementById('final-score').innerText = "Результат: " + score + " блоков";
             document.getElementById('game-over').style.display = 'flex';
             return;
         }
+
+        // Обрезаем лишние края блока
         let newW = lastBlock.w - Math.abs(diff);
         let newX = diff > 0 ? currentBlock.x : lastBlock.x;
-        currentBlock.w = newW; currentBlock.x = newX;
+        
+        currentBlock.w = newW; 
+        currentBlock.x = newX;
+
+        // Добавляем новый блок в башню с красивым переливом цвета
         blocks.push({ x: newX, w: newW, color: `hsl(${(score * 15) % 360}, 100%, 50%)` });
-        score++; document.getElementById('score').innerText = "БЛОКОВ: " + score;
-        playTone(300 + score * 20);
-        if(score % 4 === 0) speed += 0.5;
+        score++; 
+        document.getElementById('score').innerText = "БЛОКОВ: " + score;
+        
+        playTone(300 + score * 15);
+        if(score % 4 === 0) speed += 0.4; // Постепенно ускоряем игру
+
+        // Спавним следующий летящий блок
         currentBlock = { x: 0, w: newW, color: '#fff' };
     });
+
     function update() {
         if(gameActive) {
             currentBlock.x += speed * dir;
             if(currentBlock.x + currentBlock.w > canvas.width || currentBlock.x < 0) dir *= -1;
         }
+
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        let offset = blocks.length > 6 ? (blocks.length - 6) * 40 : 0;
+        
+        // Камера плавно уходит вверх, если башня становится слишком высокой
+        let offset = blocks.length > 7 ? (blocks.length - 7) * 40 : 0;
+
+        // Рисуем всю построенную башню
         for(let i=0; i<blocks.length; i++) {
             let b = blocks[i];
             ctx.fillStyle = b.color;
             ctx.fillRect(b.x, canvas.height - 40 - (i * 40) + offset, b.w, 35);
         }
+
+        // Рисуем летающий блок сверху
         if(gameActive) {
             ctx.fillStyle = '#fff';
             ctx.fillRect(currentBlock.x, canvas.height - 40 - (blocks.length * 40) + offset, currentBlock.w, 35);
         }
+
         requestAnimationFrame(update);
     }
+
     function resetGame() { initGame(); }
+
     initGame(); update();
 </script>
 </body>
