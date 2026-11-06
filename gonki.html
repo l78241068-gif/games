@@ -3,15 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>3D Neon Racing Fixed</title>
+    <title>3D Pro Neon Racing</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #050508; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 20px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 20px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; line-height: 1.4; }
+        .danger { color: #ff3333; text-shadow: 0 0 10px #ff3333; animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        
         .btn { position: absolute; bottom: 25px; background: rgba(0,0,0,0.6); color: #00ffff; border: 2px solid #00ffff; font-size: 24px; font-weight: bold; border-radius: 15px; display: flex; justify-content: center; align-items: center; z-index: 100; box-shadow: 0 0 10px #00ffff; }
         #btn-left { left: 25px; width: 75px; height: 75px; }
         #btn-right { left: 115px; width: 75px; height: 75px; }
         #btn-gas { right: 25px; width: 90px; height: 90px; background: rgba(255,0,255,0.4); border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
+        
+        /* Экран пасхалки */
+        #meme-screen { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#000; color:#fff; z-index:1000; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:sans-serif; padding:20px; box-sizing:border-box; }
+        #meme-screen h1 { color: #ff00ff; font-size: 40px; text-shadow: 0 0 20px #ff00ff; margin-bottom: 10px; }
+        #meme-screen p { font-size: 20px; color: #00ffff; max-width: 500px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -19,6 +27,13 @@
 <div id="ui">
     СКОРОСТЬ: <span id="speed">0</span> КМ/Ч<br>
     ДИСТАНЦИЯ: <span id="distance">0</span> М
+    <div id="drift-alert" style="display:none;" class="danger">⚠️ ЗАНОС / ВЫЛЕТ!</div>
+</div>
+
+<!-- Окно скрытой пасхалки -->
+<div id="meme-screen">
+    <h1>ПАСХАЛКА АКТИВИРОВАНА!</h1>
+    <p>Вы доехали до 607 000 метров! Тот самый легендарный МЕМ 67 здесь! Лёва, ты лучший гонщик во вселенной! 🏎️💨</p>
 </div>
 
 <div id="btn-left" class="btn">◀</div>
@@ -35,39 +50,31 @@
     window.addEventListener('resize', resize); resize();
 
     let gameActive = true, speed = 0, distance = 0, carX = 0, progress = 0;
-    const maxSpeed = 40;
+    const maxSpeed = 50; // Быстрее разгон и максималка
     let pressGas = false, pressLeft = false, pressRight = false;
     let audioCtx = null, motorOsc = null, motorGain = null;
 
     let track = [];
-    for (let i = 0; i < 800; i++) {
+    for (let i = 0; i < 1000; i++) {
         let curve = 0;
-        if (i > 60 && i < 140) curve = 2;
-        if (i > 200 && i < 300) curve = -3;
-        if (i > 400 && i < 500) curve = 2.5;
+        if (i > 50 && i < 120) curve = 2.2;    // Изгиб вправо
+        if (i > 180 && i < 280) curve = -3.5;  // Опасный поворот влево
+        if (i > 350 && i < 440) curve = 2.8;   // Крутой поворот вправо
+        if (i > 520 && i < 650) curve = -2.0;  // Затяжная дуга
         track.push({ x: Math.sin(i * 0.04) * 300, z: -i * 120, curve: curve });
     }
 
-    // Запуск звука мотора
     function startMotorSound() {
         if (motorOsc) return;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         motorOsc = audioCtx.createOscillator();
         motorGain = audioCtx.createGain();
-        
         motorOsc.type = 'sawtooth';
-        motorOsc.frequency.setValueAtTime(60, audioCtx.currentTime); // Низкий гул
-        
-        // Фильтр для эффекта выхлопа
+        motorOsc.frequency.setValueAtTime(50, audioCtx.currentTime);
         let filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(200, audioCtx.currentTime);
-        
-        motorGain.gain.setValueAtTime(0.0, audioCtx.currentTime); // Сначала тихо
-        
-        motorOsc.connect(filter);
-        filter.connect(motorGain);
-        motorGain.connect(audioCtx.destination);
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(180, audioCtx.currentTime);
+        motorGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+        motorOsc.connect(filter); filter.connect(motorGain); motorGain.connect(audioCtx.destination);
         motorOsc.start();
     }
 
@@ -86,31 +93,62 @@
     }
 
     function gameLoop() {
-        if (pressGas) speed += 0.4; else speed -= 0.6;
+        if (!gameActive) return;
+
+        if (pressGas) speed += 0.5; else speed -= 0.7;
         speed = Math.max(0, Math.min(speed, maxSpeed));
 
-        if (pressLeft) carX -= 1.5 * (speed / maxSpeed);
-        if (pressRight) carX += 1.5 * (speed / maxSpeed);
+        // Повороты руля
+        let turnForce = 1.8 * (speed / maxSpeed);
+        if (pressLeft) carX -= turnForce;
+        if (pressRight) carX += turnForce;
 
         progress += speed * 4;
-        distance += Math.round(speed * 0.2);
+        distance += Math.round(speed * 0.4); // Быстрый набор метров для рекорда
+
+        // ПРОВЕРКА ПАСХАЛКИ (607000 метров)
+        if (distance >= 607000) {
+            gameActive = false;
+            document.getElementById('meme-screen').style.display = 'flex';
+            if (motorGain) motorGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            return;
+        }
 
         document.getElementById("speed").innerText = Math.round(speed * 6);
         document.getElementById("distance").innerText = distance;
 
-        // Динамический рев мотора от скорости
-        if (motorOsc && motorGain) {
-            motorOsc.frequency.setValueAtTime(50 + speed * 4, audioCtx.currentTime);
-            motorGain.gain.setValueAtTime(pressGas ? 0.15 : 0.05, audioCtx.currentTime);
+        let startSeg = Math.floor(progress / 120);
+        if (startSeg >= track.length - 45) progress = 0;
+
+        // ХАРДКОРНОЕ УСЛОЖНЕНИЕ: Центробежная сила уносит тачку с дороги на большой скорости
+        let currentTrackSeg = track[startSeg];
+        let alertDiv = document.getElementById('drift-alert');
+        if (speed > 15 && currentTrackSeg && currentTrackSeg.curve !== 0) {
+            // Сила инерции толкает машину в противоположную повороту сторону
+            carX -= currentTrackSeg.curve * 0.045 * (speed / maxSpeed);
+            
+            // Если унесло слишком сильно за поребрик — скорость резко падает (трение о траву)
+            if (Math.abs(carX) > 2.5) {
+                speed -= 1.2;
+                alertDiv.style.display = 'block';
+            } else {
+                alertDiv.style.display = 'none';
+            }
+        } else {
+            alertDiv.style.display = 'none';
         }
 
-        ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#0d0d1a'; ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
+        // Рев движка меняется от заносов и скорости
+        if (motorOsc && motorGain) {
+            motorOsc.frequency.setValueAtTime(45 + speed * 5, audioCtx.currentTime);
+            motorGain.gain.setValueAtTime(pressGas ? 0.18 : 0.04, audioCtx.currentTime);
+        }
+
+        // Рендеринг сцены
+        ctx.fillStyle = '#030306'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#080812'; ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
 
         let camZ = -progress;
-        let startSeg = Math.floor(progress / 120);
-        if (startSeg >= track.length - 40) progress = 0;
-
         let camX = track[startSeg].x + carX * 100;
         let camY = 500; let fov = 400;
 
@@ -124,14 +162,14 @@
             if (!pProjLeft || !pProjRight) continue;
 
             ctx.strokeStyle = (i % 2 === 0) ? '#00ffff' : '#ff00ff';
-            ctx.lineWidth = Math.max(1, pProjLeft.scale * 4);
+            ctx.lineWidth = Math.max(1, pProjLeft.scale * 3);
             if (i < startSeg + 40 && pProjLeft.y < maxRenderY) {
                 if (i > startSeg) {
                     let prev = track[i-1];
                     let prevProjL = project(prev.x - 200, 0, prev.z, camX, camY, camZ, fov, canvas.width, canvas.height);
                     let prevProjR = project(prev.x + 200, 0, prev.z, camX, camY, camZ, fov, canvas.width, canvas.height);
                     if (prevProjL && prevProjR) {
-                        ctx.fillStyle = '#111122'; ctx.beginPath();
+                        ctx.fillStyle = '#0b0b14'; ctx.beginPath();
                         ctx.moveTo(pProjLeft.x, pProjLeft.y); ctx.lineTo(pProjRight.x, pProjRight.y);
                         ctx.lineTo(prevProjR.x, prevProjR.y); ctx.lineTo(prevProjL.x, prevProjL.y); ctx.fill();
                         
@@ -142,16 +180,15 @@
             }
         }
 
-        let currentTrackSeg = track[startSeg];
-        if (speed > 0 && currentTrackSeg) { carX -= currentTrackSeg.curve * 0.002 * (speed / maxSpeed); }
-
+        // Рисуем уменьшенную аккуратную машину
         ctx.save();
-        let carW = 140, carH = 55;
+        let carW = 95, carH = 40; // Компактный размер
         let cx = canvas.width / 2 - carW / 2;
-        let cy = canvas.height - 140 + Math.sin(Date.now()*0.05)*(speed*0.1);
+        let cy = canvas.height - 130 + Math.sin(Date.now()*0.06)*(speed*0.08);
+        
         ctx.fillStyle = '#ff00ff'; ctx.fillRect(cx, cy, carW, carH);
-        ctx.fillStyle = '#00ffff'; ctx.fillRect(cx + 20, cy - 15, carW - 40, 15);
-        ctx.fillStyle = '#111'; ctx.fillRect(cx - 5, cy + carH - 20, 15, 25); ctx.fillRect(cx + carW - 10, cy + carH - 20, 15, 25);
+        ctx.fillStyle = '#00ffff'; ctx.fillRect(cx + 15, cy - 10, carW - 30, 10);
+        ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy + carH - 12, 10, 16); ctx.fillRect(cx + carW - 7, cy + carH - 12, 10, 16);
         ctx.restore();
 
         requestAnimationFrame(gameLoop);
@@ -159,4 +196,3 @@
     gameLoop();
 </script>
 </body>
-</html>
