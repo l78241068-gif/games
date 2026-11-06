@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>3D Плавные Гонки</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #050508; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 18px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; line-height: 1.4; }
+        .danger { color: #ff3333; text-shadow: 0 0 10px #ff3333; }
+        
+        /* Большие круглые удобные кнопки */
+        .btn { position: absolute; bottom: 25px; background: rgba(0,0,0,0.7); color: #00ffff; border: 3px solid #00ffff; font-size: 28px; font-weight: bold; border-radius: 50%; display: flex; justify-content: center; align-items: center; z-index: 100; box-shadow: 0 0 15px #00ffff; -webkit-tap-highlight-color: transparent; }
+        #btn-left { left: 20px; width: 85px; height: 85px; }
+        #btn-right { left: 125px; width: 85px; height: 85px; }
+        #btn-gas { right: 20px; width: 100px; height: 100px; background: rgba(255,0,255,0.3); border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 15px #ff00ff; font-size: 20px; }
+        
+        #meme-screen { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#000; color:#fff; z-index:1000; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:sans-serif; padding:20px; box-sizing:border-box; }
+        #meme-screen h1 { color: #ff00ff; font-size: 36px; text-shadow: 0 0 20px #ff00ff; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    СКОРОСТЬ: <span id="speed">0</span> КМ/Ч<br>
+    ДИСТАНЦИЯ: <span id="distance">0</span> М
+    <div id="drift-alert" style="display:none;" class="danger">⚠️ ВЫЛЕТ С ТРАССЫ!</div>
+</div>
+
+<div id="meme-screen">
+    <h1>МЕМ 67 АКТИВИРОВАН!</h1>
+    <p>607 000 метров позади! Лёва — легенда уличных гонок! 🏎️💨</p>
+</div>
+
+<div id="btn-left" class="btn">◀</div>
+<div id="btn-right" class="btn">▶</div>
+<div id="btn-gas" class="btn">ГАЗ</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let gameActive = true, speed = 0, distance = 0, carX = 0, progress = 0;
+    const maxSpeed = 45;
+    let pressGas = false, pressLeft = false, pressRight = false;
+    
+    // Переменные для звука
+    let audioCtx = null, osc = null, gainNode = null;
+
+    let track = [];
+    for (let i = 0; i < 1000; i++) {
+        let curve = 0;
+        if (i > 60 && i < 130) curve = 2.0;
+        if (i > 200 && i < 300) curve = -3.2;
+        if (i > 400 && i < 500) curve = 2.5;
+        track.push({ x: Math.sin(i * 0.04) * 300, z: -i * 120, curve: curve });
+    }
+
+    // Железный запуск звука мотора
+    function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        osc = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(40, audioCtx.currentTime); // Низкий бас мотора
+        
+        let filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(150, audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.01, audioCtx.currentTime);
+        
+        osc.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start();
+    }
+
+    // Сенсорные кнопки (обработка нажатий)
+    document.getElementById('btn-gas').addEventListener('touchstart', (e) => { e.preventDefault(); pressGas = true; initAudio(); });
+    document.getElementById('btn-gas').addEventListener('touchend', (e) => { e.preventDefault(); pressGas = false; });
+    document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); pressLeft = true; });
+    document.getElementById('btn-left').addEventListener('touchend', (e) => { e.preventDefault(); pressLeft = false; });
+    document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); pressRight = true; });
+    document.getElementById('btn-right').addEventListener('touchend', (e) => { e.preventDefault(); pressRight = false; });
+
+    function project(x, y, z, camX, camY, camZ, fov, width, height) {
+        let tx = x - camX; let ty = y - camY; let tz = z - camZ;
+        if (tz >= 0) return null;
+        let scale = fov / -tz;
+        return { x: width / 2 + tx * scale, y: height / 2 - ty * scale, scale: scale };
+    }
+
+    function gameLoop() {
+        if (!gameActive) return;
+
+        if (pressGas) speed += 0.3; else speed -= 0.6;
+        speed = Math.max(0, Math.min(speed, maxSpeed));
+
+        // ОЧЕНЬ ПЛАВНЫЙ ПОВОРОТ: скорость руления нарастает постепенно
+        let turnSpeed = 0.05 * (speed / maxSpeed);
+        if (pressLeft) carX -= turnSpeed;
+        if (pressRight) carX += turnSpeed;
+
+        progress += speed * 4;
+        distance += Math.round(speed * 0.4);
+
+        if (distance >= 607000) {
+            gameActive = false;
+            document.getElementById('meme-screen').style.display = 'flex';
+            if (gainNode) gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            return;
+        }
+
+        document.getElementById("speed").innerText = Math.round(speed * 6);
+        document.getElementById("distance").innerText = distance;
+
+        // Плавное изменение звука мотора
+        if (osc && gainNode) {
+            osc.frequency.setValueAtTime(40 + speed * 3, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(pressGas ? 0.2 : 0.04, audioCtx.currentTime);
+        }
+
+        ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0c0c16'; ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
+
+        let camZ = -progress;
+        let startSeg = Math.floor(progress / 120);
+        if (startSeg >= track.length - 45) progress = 0;
+
+        let currentTrackSeg = track[startSeg];
+        let alertDiv = document.getElementById('drift-alert');
+        
+        // Усложнение: унос с дороги на поворотах
+        if (speed > 15 && currentTrackSeg && currentTrackSeg.curve !== 0) {
+            carX -= currentTrackSeg.curve * 0.04 * (speed / maxSpeed);
+            if (Math.abs(carX) > 2.2) { speed -= 0.8; alertDiv.style.display = 'block'; } 
+            else { alertDiv.style.display = 'none'; }
+        } else { alertDiv.style.display = 'none'; }
+
+        let camX = track[startSeg].x + carX * 100;
+        let camY = 500; let fov = 400;
+
+        let maxRenderY = canvas.height;
+        for (let i = startSeg + 35; i >= startSeg; i--) {
+            if (i >= track.length) continue;
+            let p = track[i];
+            let pProjLeft = project(p.x - 200, 0, p.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+            let pProjRight = project(p.x + 200, 0, p.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+
+            if (!pProjLeft || !pProjRight) continue;
+
+            ctx.strokeStyle = (i % 2 === 0) ? '#00ffff' : '#ff00ff';
+            ctx.lineWidth = Math.max(1, pProjLeft.scale * 2.5);
+            if (i < startSeg + 35 && pProjLeft.y < maxRenderY) {
+                if (i > startSeg) {
+                    let prev = track[i-1];
+                    let prevProjL = project(prev.x - 200, 0, prev.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+                    let prevProjR = project(prev.x + 200, 0, prev.z, camX, camY, camZ, fov, canvas.width, canvas.height);
+                    if (prevProjL && prevProjR) {
+                        ctx.fillStyle = '#080811'; ctx.beginPath();
+                        ctx.moveTo(pProjLeft.x, pProjLeft.y); ctx.lineTo(pProjRight.x, pProjRight.y);
+                        ctx.lineTo(prevProjR.x, prevProjR.y); ctx.lineTo(prevProjL.x, prevProjL.y); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(pProjLeft.x, pProjLeft.y); ctx.lineTo(prevProjL.x, prevProjL.y); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(pProjRight.x, pProjRight.y); ctx.lineTo(prevProjR.x, prevProjR.y); ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        // РЕАЛЬНО МАЛЕНЬКАЯ МАШИНКА (Размеры уменьшены в 3 раза!)
+        ctx.save();
+        let carW = 60, carH = 26; 
+        let cx = canvas.width / 2 - carW / 2;
+        let cy = canvas.height - 140;
+        
+        ctx.fillStyle = '#ff00ff'; ctx.fillRect(cx, cy, carW, carH);
+        ctx.fillStyle = '#00ffff'; ctx.fillRect(cx + 10, cy - 6, carW - 20, 6);
+        ctx.fillStyle = '#000'; ctx.fillRect(cx - 2, cy + carH - 6, 8, 10); ctx.fillRect(cx + carW - 6, cy + carH - 6, 8, 10);
+        ctx.restore();
+
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+</script>
+</body>
+</html>
