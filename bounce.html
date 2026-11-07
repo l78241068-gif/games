@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>Cyber Bounce Mobile</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #040408; font-family: sans-serif; user-select: none; touch-action: none; color: #fff; }
+        #game-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 10px; box-sizing: border-box; }
+        #score { font-size: 28px; font-weight: bold; color: #ff00ff; text-shadow: 0 0 15px rgba(255,0,255,0.6); margin-top: 10px; margin-bottom: 10px; }
+        canvas { background: #090914; border: 2px solid #333; border-radius: 15px; box-shadow: 0 0 25px rgba(255,0,255,0.2); max-width: 100%; max-height: 75vh; }
+        #hint { margin-top: 15px; font-size: 13px; color: #444; text-transform: uppercase; letter-spacing: 1px; text-align: center; }
+        .overlay { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .restart-btn { background: #ff00ff; color: #fff; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 12px; margin-top: 20px; box-shadow: 0 0 15px #ff00ff; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="score">ОЧКИ: 0</div>
+    <canvas id="bounceCanvas" width="340" height="440"></canvas>
+    <div id="hint">Води пальцем внизу экрана, чтобы двигать платформу!</div>
+</div>
+
+<!-- Экран проигрыша -->
+<div id="game-over" class="overlay">
+    <h1 style="color:#ff0055; text-shadow: 0 0 15px #ff0055;">ШАР УПАЛ! 💥</h1>
+    <p id="final-score" style="font-size:22px; color: #ff00ff;"></p>
+    <button class="restart-btn" onclick="resetGame()">ИГРАТЬ ЕЩЕ РАЗ</button>
+</div>
+
+<script>
+    const canvas = document.getElementById("bounceCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let score = 0, gameActive = true;
+    let audioCtx = null;
+
+    // Платформа
+    const paddle = { x: 130, y: 410, w: 80, h: 12, color: '#00ffff' };
+
+    // Шар
+    const ball = { x: 170, y: 200, radius: 8, dx: 3, dy: -3, color: '#ff00ff' };
+
+    // Блоки-мишени
+    let bricks = [];
+    function generateBricks() {
+        bricks = [];
+        for (let c = 0; c < 5; c++) {
+            for (let r = 0; r < 3; r++) {
+                bricks.push({
+                    x: c * 62 + 20,
+                    y: r * 25 + 50,
+                    w: 52,
+                    h: 15,
+                    status: 1,
+                    color: `hsl(${(r * 40 + 200) % 360}, 100%, 50%)`
+                });
+            }
+        }
+    }
+
+    function playTone(f, t = 0.06) {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(f, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.08, audioCtx.currentTime); o.start(); o.stop(audioCtx.currentTime + t);
+    }
+
+    // Управление пальцем
+    window.addEventListener('touchmove', (e) => {
+        if (!gameActive) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touchX = e.touches[0].clientX - rect.left;
+        
+        // Плавное следование за пальцем с ограничением по экрану
+        paddle.x = touchX - paddle.w / 2;
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.w > canvas.width) paddle.x = canvas.width - paddle.w;
+    }, { passive: false });
+
+    function draw() {
+        if (!gameActive) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Рисуем платформу со свечением
+        ctx.fillStyle = paddle.color;
+        ctx.shadowBlur = 10; ctx.shadowColor = paddle.color;
+        ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+
+        // Рисуем шар
+        ctx.fillStyle = ball.color;
+        ctx.shadowBlur = 10; ctx.shadowColor = ball.color;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Рисуем и проверяем блоки
+        let allDestroyed = true;
+        bricks.forEach(b => {
+            if (b.status === 1) {
+                allDestroyed = false;
+                ctx.fillStyle = b.color;
+                ctx.shadowBlur = 5; ctx.shadowColor = b.color;
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+
+                // Коллизия шара с блоком
+                if (ball.x > b.x && ball.x < b.x + b.w && ball.y > b.y && ball.y < b.y + b.h) {
+                    ball.dy = -ball.dy;
+                    b.status = 0;
+                    score += 10;
+                    document.getElementById('score').innerText = "ОЧКИ: " + score;
+                    playTone(550 + score);
+                }
+            }
+        });
+        ctx.shadowBlur = 0; // Сброс свечения
+
+        if (allDestroyed) {
+            generateBricks();
+            ball.dy = -Math.abs(ball.dy) - 0.5; // Небольшое ускорение при новой волне
+        }
+
+        // Физика отскоков от стен
+        if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+            ball.dx = -ball.dx; playTone(350);
+        }
+        if (ball.y + ball.dy < ball.radius) {
+            ball.dy = -ball.dy; playTone(350);
+        }
+
+        // Отскок от платформы игрока
+        if (ball.y + ball.dy > paddle.y - ball.radius && ball.y + ball.dy < paddle.y + paddle.h) {
+            if (ball.x > paddle.x && ball.x < paddle.x + paddle.w) {
+                // Меняем угол отскока в зависимости от того, куда упал шар
+                let hitPos = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                ball.dx = hitPos * 4;
+                ball.dy = -Math.abs(ball.dy);
+                playTone(450);
+            }
+        }
+
+        // Проигрыш (вылет шара вниз)
+        if (ball.y + ball.dy > canvas.height) {
+            gameActive = false;
+            playTone(180, 0.2);
+            document.getElementById('final-score').innerText = "Результат: " + score + " очков";
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        requestAnimationFrame(draw);
+    }
+
+    function resetGame() {
+        score = 0;
+        document.getElementById('score').innerText = "ОЧКИ: 0";
+        ball.x = 170; ball.y = 200; ball.dx = 3; ball.dy = -3;
+        paddle.x = 130;
+        generateBricks();
+        gameActive = true;
+        document.getElementById('game-over').style.display = 'none';
+        draw();
+    }
+
+    generateBricks();
+    draw();
+</script>
+</body>
+</html>
