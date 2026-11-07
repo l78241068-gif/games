@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>Игровой Хаб Лёвы</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #12121c, #08080d);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            color: #00ffff;
+            font-size: 28px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 15px #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        p { color: #888; margin-bottom: 25px; font-size: 14px; }
+        .menu-grid { display: flex; flex-direction: column; gap: 12px; }
+        .game-btn {
+            display: block;
+            text-decoration: none;
+            padding: 15px;
+            font-size: 17px;
+            font-weight: bold;
+            border-radius: 12px;
+            color: #fff;
+            transition: 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .game-btn:hover { transform: translateY(-2px); }
+        .btn-love { background: linear-gradient(90deg, #ff4d6d, #ff758f); border: 1px solid #ff4d6d; }
+        .btn-cs { background: linear-gradient(90deg, #de9b35, #f68b1f); border: 1px solid #f68b1f; }
+        .btn-race { background: linear-gradient(90deg, #00b4db, #0083b0); border: 1px solid #00b4db; }
+        .btn-egg { background: linear-gradient(90deg, #00ffff, #0083b0); border: 1px solid #00ffff; color: #fff; }
+        .btn-click { background: linear-gradient(90deg, #ff00ff, #7300ff); border: 1px solid #ff00ff; color: #fff; }
+        .btn-pc { background: linear-gradient(90deg, #00ffcc, #00b4db); border: 1px solid #00ffcc; color: #000; }
+        .btn-stack { background: linear-gradient(90deg, #ff007f, #ffaa00); border: 1px solid #ff007f; color: #fff; }
+        .btn-snake { background: linear-gradient(90deg, #00ffaa, #00b4db); border: 1px solid #00ffaa; color: #000; }
+        .btn-bounce { background: linear-gradient(90deg, #ff00ff, #00b4db); border: 1px solid #ff00ff; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Игры Лёвы</h1>
+    <p>Выбери проект для запуска на телефоне:</p>
+    
+    <div class="menu-grid">
+        <a href="cs2.html" class="game-btn btn-cs">🔫 Тренажер CS2</a>
+        <a href="3drace.html" class="game-btn btn-race">🏎️ 3D Неон Гонки</a>
+        <a href="egg.html" class="game-btn btn-egg">🥚 Укради Яйцо</a>
+        <a href="clicker.html" class="game-btn btn-click">💾 Кибер Кликер</a>
+        <a href="pc-craft.html" class="game-btn btn-pc">🖥️ Сборка Компьютера</a>
+        <a href="stacker.html" class="game-btn btn-stack">🧱 Неоновый Стекер</a>
+        <a href="snake.html" class="game-btn btn-snake">🐍 Кибер Змейка</a>
+        <!-- Новая игра в самом конце списка -->
+        <a href="bounce.html" class="game-btn btn-bounce">🔮 Неоновый Рикошет</a>
+    </div>
+</div>
+
+</body>
+</html>
