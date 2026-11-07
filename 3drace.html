@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>3D Плавные Гонки</title>
+    <title>3D Плавные Гонки 67</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #050508; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         #ui { position: absolute; top: 15px; left: 15px; color: #00ffff; font-size: 18px; pointer-events: none; text-shadow: 0 0 10px #00ffff; font-weight: bold; z-index: 10; line-height: 1.4; }
         .danger { color: #ff3333; text-shadow: 0 0 10px #ff3333; }
         
-        /* Большие круглые удобные кнопки */
         .btn { position: absolute; bottom: 25px; background: rgba(0,0,0,0.7); color: #00ffff; border: 3px solid #00ffff; font-size: 28px; font-weight: bold; border-radius: 50%; display: flex; justify-content: center; align-items: center; z-index: 100; box-shadow: 0 0 15px #00ffff; -webkit-tap-highlight-color: transparent; }
         #btn-left { left: 20px; width: 85px; height: 85px; }
         #btn-right { left: 125px; width: 85px; height: 85px; }
         #btn-gas { right: 20px; width: 100px; height: 100px; background: rgba(255,0,255,0.3); border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 15px #ff00ff; font-size: 20px; }
         
+        /* Экран пасхалки МЕМ 67 */
         #meme-screen { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#000; color:#fff; z-index:1000; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:sans-serif; padding:20px; box-sizing:border-box; }
-        #meme-screen h1 { color: #ff00ff; font-size: 36px; text-shadow: 0 0 20px #ff00ff; }
+        #meme-screen h1 { color: #ff00ff; font-size: 38px; text-shadow: 0 0 25px #ff00ff; margin-bottom: 15px; animation: glow 1s infinite alternate; }
+        #meme-screen p { font-size: 22px; color: #00ffff; max-width: 500px; line-height: 1.6; text-shadow: 0 0 10px #00ffff; }
+        @keyframes glow { from { text-shadow: 0 0 10px #ff00ff; } to { text-shadow: 0 0 30px #ff00ff, 0 0 40px #00ffff; } }
     </style>
 </head>
 <body>
@@ -28,9 +30,10 @@
     <div id="drift-alert" style="display:none;" class="danger">⚠️ ВЫЛЕТ С ТРАССЫ!</div>
 </div>
 
+<!-- Окно секретной пасхалки на 67 000 метров -->
 <div id="meme-screen">
-    <h1>МЕМ 67 АКТИВИРОВАН!</h1>
-    <p>607 000 метров позади! Лёва — легенда уличных гонок! 🏎️💨</p>
+    <h1>ПАСХАЛКА: МЕМ 67! 🥇</h1>
+    <p>67 000 метров успешно пройдены!<br><br>Лёва, ты официально самый быстрый и хардкорный гонщик в этой школе! Пацаны повторить точно не смогут! 😎🏎️💨</p>
 </div>
 
 <div id="btn-left" class="btn">◀</div>
@@ -50,7 +53,6 @@
     const maxSpeed = 45;
     let pressGas = false, pressLeft = false, pressRight = false;
     
-    // Переменные для звука
     let audioCtx = null, osc = null, gainNode = null;
 
     let track = [];
@@ -62,29 +64,20 @@
         track.push({ x: Math.sin(i * 0.04) * 300, z: -i * 120, curve: curve });
     }
 
-    // Железный запуск звука мотора
     function initAudio() {
         if (audioCtx) return;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         osc = audioCtx.createOscillator();
         gainNode = audioCtx.createGain();
-        
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(40, audioCtx.currentTime); // Низкий бас мотора
-        
+        osc.frequency.setValueAtTime(40, audioCtx.currentTime);
         let filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(150, audioCtx.currentTime);
-        
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(150, audioCtx.currentTime);
         gainNode.gain.setValueAtTime(0.01, audioCtx.currentTime);
-        
-        osc.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        osc.connect(filter); filter.connect(gainNode); gainNode.connect(audioCtx.destination);
         osc.start();
     }
 
-    // Сенсорные кнопки (обработка нажатий)
     document.getElementById('btn-gas').addEventListener('touchstart', (e) => { e.preventDefault(); pressGas = true; initAudio(); });
     document.getElementById('btn-gas').addEventListener('touchend', (e) => { e.preventDefault(); pressGas = false; });
     document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); pressLeft = true; });
@@ -105,7 +98,6 @@
         if (pressGas) speed += 0.3; else speed -= 0.6;
         speed = Math.max(0, Math.min(speed, maxSpeed));
 
-        // ОЧЕНЬ ПЛАВНЫЙ ПОВОРОТ: скорость руления нарастает постепенно
         let turnSpeed = 0.05 * (speed / maxSpeed);
         if (pressLeft) carX -= turnSpeed;
         if (pressRight) carX += turnSpeed;
@@ -113,7 +105,8 @@
         progress += speed * 4;
         distance += Math.round(speed * 0.4);
 
-        if (distance >= 607000) {
+        // ПРОВЕРКА ОБНОВЛЕННОЙ ПАСХАЛКИ НА 67000 МЕТРОВ
+        if (distance >= 67000) {
             gameActive = false;
             document.getElementById('meme-screen').style.display = 'flex';
             if (gainNode) gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
@@ -123,7 +116,6 @@
         document.getElementById("speed").innerText = Math.round(speed * 6);
         document.getElementById("distance").innerText = distance;
 
-        // Плавное изменение звука мотора
         if (osc && gainNode) {
             osc.frequency.setValueAtTime(40 + speed * 3, audioCtx.currentTime);
             gainNode.gain.setValueAtTime(pressGas ? 0.2 : 0.04, audioCtx.currentTime);
@@ -139,7 +131,6 @@
         let currentTrackSeg = track[startSeg];
         let alertDiv = document.getElementById('drift-alert');
         
-        // Усложнение: унос с дороги на поворотах
         if (speed > 15 && currentTrackSeg && currentTrackSeg.curve !== 0) {
             carX -= currentTrackSeg.curve * 0.04 * (speed / maxSpeed);
             if (Math.abs(carX) > 2.2) { speed -= 0.8; alertDiv.style.display = 'block'; } 
@@ -176,7 +167,6 @@
             }
         }
 
-        // РЕАЛЬНО МАЛЕНЬКАЯ МАШИНКА (Размеры уменьшены в 3 раза!)
         ctx.save();
         let carW = 60, carH = 26; 
         let cx = canvas.width / 2 - carW / 2;
