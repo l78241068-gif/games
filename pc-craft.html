@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>PC Builder Simulator</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #0b0b16; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; color: #fff; }
+        #game-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 15px; box-sizing: border-box; }
+        
+        #header { text-align: center; margin-top: 10px; }
+        #balance { font-size: 28px; font-weight: bold; color: #00ffcc; text-shadow: 0 0 15px rgba(0,255,204,0.4); }
+        #income-view { font-size: 14px; color: #aaa; margin-top: 4px; }
+
+        /* Визуальный системный блок */
+        #pc-case { width: 190px; height: 210px; background: #1a1a2e; border: 4px solid #3d3d5c; border-radius: 15px; position: relative; box-shadow: 0 0 25px rgba(0,255,255,0.2); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.05s; -webkit-tap-highlight-color: transparent; }
+        #pc-case:active { transform: scale(0.95); }
+        
+        /* Компоненты внутри корпуса */
+        .part { position: absolute; border-radius: 5px; display: none; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; color: #fff; text-shadow: 1px 1px #000; }
+        #part-motherboard { width: 150px; height: 170px; background: #143d22; border: 2px solid #23693b; top: 15px; left: 15px; z-index: 1; }
+        #part-cpu { width: 40px; height: 40px; background: #2b2b2b; border: 2px solid #555; top: 50px; left: 70px; z-index: 2; }
+        #part-ram { width: 12px; height: 60px; background: #ff00ff; box-shadow: 0 0 8px #ff00ff; top: 40px; left: 125px; z-index: 3; }
+        #part-gpu { width: 130px; height: 45px; background: #00ffff; box-shadow: 0 0 10px #00ffff; top: 105px; left: 25px; z-index: 4; }
+        #part-cooler { width: 55px; height: 55px; background: #ffaa00; border-radius: 50%; box-shadow: 0 0 10px #ffaa00; top: 42px; left: 63px; z-index: 5; animation: spin 1s linear infinite; display: none; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        #pc-text { z-index: 10; font-weight: bold; font-size: 14px; text-transform: uppercase; color: #888; text-align: center; pointer-events: none; }
+
+        /* Магазин комплектующих */
+        #shop { width: 100%; max-height: 40vh; overflow-y: auto; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 10px; box-sizing: border-box; margin-bottom: 5px; }
+        .shop-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); padding: 10px; margin-bottom: 8px; border-radius: 10px; border: 1px solid rgba(0,255,255,0.1); }
+        .item-info { display: flex; flex-direction: column; }
+        .item-name { font-weight: bold; font-size: 14px; }
+        .item-cost { font-size: 12px; color: #ff00ff; margin-top: 2px; }
+        .buy-btn { background: #00ffcc; color: #000; border: none; padding: 8px 12px; font-weight: bold; border-radius: 8px; font-size: 12px; }
+        .buy-btn.bought { background: #555; color: #aaa; cursor: default; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="header">
+        <div id="balance">0 FPS</div>
+        <div id="income-view">Мощность: +0 FPS / сек</div>
+    </div>
+    
+    <!-- Корпус ПК, внутрь которого будут ставиться детали -->
+    <div id="pc-case" onclick="clickPC()">
+        <div id="pc-text">Кликни для<br>майнинга</div>
+        <div id="part-motherboard" class="part">МАТЬ</div>
+        <div id="part-cpu" class="part">ЦП</div>
+        <div id="part-ram" class="part">ОЗУ</div>
+        <div id="part-gpu" class="part">GPU</div>
+        <div id="part-cooler" class="part">⚙️</div>
+    </div>
+    
+    <div id="shop">
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">🟢 Материнская плата (+1 за клик)</span>
+                <span id="cost-motherboard" class="item-cost">Цена: 50 FPS</span>
+            </div>
+            <button id="btn-motherboard" class="buy-btn" onclick="buyPart('motherboard', 50, 0, 1)">КУПИТЬ</button>
+        </div>
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">Intel Core i9 (+2 / сек)</span>
+                <span id="cost-cpu" class="item-cost">Цена: 250 FPS</span>
+            </div>
+            <button id="btn-cpu" class="buy-btn" onclick="buyPart('cpu', 250, 2, 0)">КУПИТЬ</button>
+        </div>
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">🚀 ОЗУ HyperX RGB (+10 / сек)</span>
+                <span id="cost-ram" class="item-cost">Цена: 1000 FPS</span>
+            </div>
+            <button id="btn-ram" class="buy-btn" onclick="buyPart('ram', 1000, 10, 0)">КУПИТЬ</button>
+        </div>
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">🌀 Водяное охлаждение (+40 / сек)</span>
+                <span id="cost-cooler" class="item-cost">Цена: 4500 FPS</span>
+            </div>
+            <button id="btn-cooler" class="buy-btn" onclick="buyPart('cooler', 4500, 40, 0)">КУПИТЬ</button>
+        </div>
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">👑 NVIDIA RTX 5090 (+250 / сек)</span>
+                <span id="cost-gpu" class="item-cost">Цена: 20000 FPS</span>
+            </div>
+            <button id="btn-gpu" class="buy-btn" onclick="buyPart('gpu', 20000, 250, 0)">КУПИТЬ</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let fps = 0;
+    let clickPower = 1;
+    let fpsPerSecond = 0;
+    let audioCtx = null;
+
+    let inventory = { motherboard: false, cpu: false, ram: false, cooler: false, gpu: false };
+
+    function playSound(freq, type = 'sine') {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.06);
+    }
+
+    function clickPC() {
+        fps += clickPower;
+        playSound(450 + clickPower * 3);
+        updateUI();
+    }
+
+    function buyPart(partId, cost, addIncome, addClick) {
+        if (inventory[partId]) return; // Уже куплено
+        
+        if (fps >= cost) {
+            fps -= cost;
+            inventory[partId] = true;
+            fpsPerSecond += addIncome;
+            clickPower += addClick;
+            
+            // Показываем деталь визуально в корпусе
+            if (partId === 'cooler') {
+                document.getElementById('part-cooler').style.display = 'flex';
+            } else {
+                document.getElementById('part-' + partId).style.style.display = 'flex';
+            }
+            
+            // Если поставили материнку — прячем стартовый текст
+            if (partId === 'motherboard') {
+                document.getElementById('pc-text').style.display = 'none';
+            }
+
+            playSound(700, 'triangle');
+            updateUI();
+        } else {
+            playSound(150, 'sawtooth'); // Ошибка — мало денег
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('balance').innerText = Math.floor(fps) + " FPS";
+        document.getElementById('income-view').innerText = "Мощность: +" + fpsPerSecond + " FPS / сек";
+        
+        // Обновляем кнопки магазина
+        for (let key in inventory) {
+            let btn = document.getElementById('btn-' + key);
+            if (inventory[key]) {
+                btn.innerText = "УСТАНОВЛЕНО";
+                btn.className = "buy-btn bought";
+                btn.disabled = true;
+            }
+        }
+    }
+
+    // Ежесекундный майнинг FPS собранным железом
+    setInterval(() => {
+        if (fpsPerSecond > 0) {
+            fps += fpsPerSecond;
+            updateUI();
+        }
+    }, 1000);
+
+    updateUI();
+</script>
+</body>
+</html>
