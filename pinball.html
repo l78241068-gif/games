@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>Cyber Pinball Mobile</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #030307; font-family: sans-serif; user-select: none; touch-action: none; color: #fff; }
+        #game-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 10px; box-sizing: border-box; position: relative; }
+        #score { font-size: 28px; font-weight: bold; color: #ffaa00; text-shadow: 0 0 15px rgba(255,170,0,0.6); margin-top: 10px; margin-bottom: 10px; }
+        canvas { background: #080812; border: 3px solid #ff00ff; border-radius: 20px; box-shadow: 0 0 25px rgba(255,0,255,0.3); max-width: 100%; max-height: 75vh; }
+        #hint { margin-top: 15px; font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 1px; text-align: center; }
+        .overlay { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .restart-btn { background: #ffaa00; color: #000; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 12px; margin-top: 20px; box-shadow: 0 0 15px #ffaa00; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="score">ОЧКИ: 0</div>
+    <canvas id="pinballCanvas" width="340" height="480"></canvas>
+    <div id="hint">Жми слева чтобы отбить левой лапкой, жми справа — правой!</div>
+</div>
+
+<div id="game-over" class="overlay">
+    <h1 style="color:#ff0055; text-shadow: 0 0 15px #ff0055;">ШАР УЛЕТЕЛ! 💥</h1>
+    <p id="final-score" style="font-size:22px; color: #ffaa00;"></p>
+    <button class="restart-btn" onclick="resetGame()">ИГРАТЬ ЕЩЕ РАЗ</button>
+</div>
+
+<script>
+    const canvas = document.getElementById("pinballCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let score = 0, gameActive = true;
+    let audioCtx = null;
+
+    // Шар
+    const ball = { x: 170, y: 100, vx: 2, vy: 3, radius: 8, gravity: 0.15, color: '#00ffff' };
+
+    // Бамперы (круглые мишени, которые сильно отталкивают шар)
+    const bumpers = [
+        { x: 100, y: 120, r: 20, color: '#ff00ff' },
+        { x: 240, y: 120, r: 20, color: '#ff00ff' },
+        { x: 170, y: 200, r: 25, color: '#ff00aa' }
+    ];
+
+    // Флипперы (лапки)
+    const leftFlipper = { x: 70, y: 430, length: 65, angle: 0.3, baseAngle: 0.3, targetAngle: -0.4, isUp: false, color: '#ffaa00' };
+    const rightFlipper = { x: 270, y: 430, length: 65, angle: Math.PI - 0.3, baseAngle: Math.PI - 0.3, targetAngle: Math.PI + 0.4, isUp: false, color: '#ffaa00' };
+
+    function playTone(f, t = 0.06) {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(f, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.08, audioCtx.currentTime); o.start(); o.stop(audioCtx.currentTime + t);
+    }
+
+    // Управление тапами по экрану телефона (лево / право)
+    window.addEventListener('touchstart', (e) => {
+        if (!gameActive) return;
+        e.preventDefault();
+        for (let t of e.touches) {
+            if (t.clientX < window.innerWidth / 2) { leftFlipper.isUp = true; } 
+            else { rightFlipper.isUp = true; }
+        }
+        playTone(300, 0.03);
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+        // Проверяем, остались ли еще пальцы на экране
+        let leftStillTouched = false;
+        let rightStillTouched = false;
+        for (let t of e.touches) {
+            if (t.clientX < window.innerWidth / 2) leftStillTouched = true;
+            else rightStillTouched = true;
+        }
+        if (!leftStillTouched) leftFlipper.isUp = false;
+        if (!rightStillTouched) rightFlipper.isUp = false;
+    });
+
+    function updateFlipper(f, sign) {
+        if (f.isUp) {
+            if (sign > 0 ? f.angle > f.targetAngle : f.angle < f.targetAngle) f.angle -= 0.25 * sign;
+        } else {
+            if (sign > 0 ? f.angle < f.baseAngle : f.angle > f.baseAngle) f.angle += 0.15 * sign;
+        }
+    }
+
+    function checkFlipperCollision(f, sign) {
+        // Физика отскока от движущейся лапки
+        let dx = ball.x - f.x;
+        let dy = ball.y - f.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < f.length + ball.radius) {
+            let ballAngle = Math.atan2(dy, dx);
+            let diffAngle = ballAngle - f.angle;
+            if (sign < 0) diffAngle = f.angle - ballAngle;
+
+            if (diffAngle > 0 && diffAngle < 0.4) {
+                let push = f.isUp ? 7 : 3;
+                ball.vy = -Math.abs(Math.sin(f.angle) * push) - 2;
+                ball.vx = Math.cos(f.angle) * push * sign;
+                score += 5;
+                document.getElementById('score').innerText = "ОЧКИ: " + score;
+                playTone(450);
+            }
+        }
+    }
+
+    function draw() {
+        if (!gameActive) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Движение лапок
+        updateFlipper(leftFlipper, 1);
+        updateFlipper(rightFlipper, -1);
+
+        // Гравитация и движение шара
+        ball.vy += ball.gravity;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        // Отскоки от стен
+        if (ball.x < ball.radius) { ball.x = ball.radius; ball.vx = -ball.vx * 0.7; playTone(250); }
+        if (ball.x > canvas.width - ball.radius) { ball.x = canvas.width - ball.radius; ball.vx = -ball.vx * 0.7; playTone(250); }
+        if (ball.y < ball.radius) { ball.y = ball.radius; ball.vy = -ball.vy * 0.7; playTone(250); }
+
+        // Проверка круглых бамперов
+        bumpers.forEach(b => {
+            let dx = ball.x - b.x;
+            let dy = ball.y - b.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < b.r + ball.radius) {
+                // Шар отлетает от центра бампера с ускорением
+                ball.vx = (dx / dist) * 6;
+                ball.vy = (dy / dist) * 6;
+                score += 25;
+                document.getElementById('score').innerText = "ОЧКИ: " + score;
+                playTone(600);
+            }
+            // Рисуем бамперы
+            ctx.fillStyle = b.color; ctx.shadowBlur = 15; ctx.shadowColor = b.color;
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+        });
+
+        // Проверка коллизий с лапками
+        checkFlipperCollision(leftFlipper, 1);
+        checkFlipperCollision(rightFlipper, -1);
+
+        // Рисуем лапки (флипперы)
+        ctx.shadowBlur = 10; ctx.shadowColor = leftFlipper.color;
+        ctx.strokeStyle = leftFlipper.color; ctx.lineWidth = 8; ctx.lineCap = 'round';
+        
+        ctx.beginPath(); ctx.moveTo(leftFlipper.x, leftFlipper.y);
+        ctx.lineTo(leftFlipper.x + Math.cos(leftFlipper.angle) * leftFlipper.length, leftFlipper.y + Math.sin(leftFlipper.angle) * leftFlipper.length);
+        ctx.stroke();
+
+        ctx.beginPath(); ctx.moveTo(rightFlipper.x, rightFlipper.y);
+        ctx.lineTo(rightFlipper.x + Math.cos(rightFlipper.angle) * rightFlipper.length, rightFlipper.y + Math.sin(rightFlipper.angle) * rightFlipper.length);
+        ctx.stroke();
+
+        // Рисуем шар
+        ctx.fillStyle = ball.color; ctx.shadowBlur = 10; ctx.shadowColor = ball.color;
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Падение шара (проигрыш)
+        if (ball.y > canvas.height) {
+            gameActive = false;
+            playTone(140, 0.25);
+            document.getElementById('final-score').innerText = "Результат: " + score + " очков";
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        requestAnimationFrame(draw);
+    }
+
+    function resetGame() {
+        score = 0; document.getElementById('score').innerText = "ОЧКИ: 0";
+        ball.x = 170; ball.y = 80; ball.vx = 2; ball.vy = 3;
+        leftFlipper.isUp = false; rightFlipper.isUp = false;
+        gameActive = true; document.getElementById('game-over').style.display = 'none';
+        draw();
+    }
+
+    draw();
+</script>
+</body>
+</html>
