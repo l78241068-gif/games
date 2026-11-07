@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>Cyber Princess Salon</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #231525; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; color: #fff; }
+        #game-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; box-sizing: border-box; background: radial-gradient(circle, #431f4a, #1b0d22); position: relative; }
+        
+        #title { font-size: 24px; font-weight: bold; color: #ff758f; text-shadow: 0 0 15px #ff4d6d; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
+        
+        /* Модель куклы по центру */
+        #doll-stage { width: 220px; height: 320px; background: rgba(255, 255, 255, 0.05); border: 2px dashed #ff758f; border-radius: 20px; position: relative; box-shadow: 0 0 30px rgba(255, 77, 109, 0.2); margin: 15px 0; overflow: hidden; }
+        .doll-layer { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 140px; transition: 0.2s ease; }
+        #layer-bg { font-size: 220px; opacity: 0.15; z-index: 1; }
+        #layer-body { z-index: 2; }
+        #layer-hair { z-index: 4; margin-top: -35px; }
+        #layer-dress { z-index: 3; margin-top: 25px; }
+        #layer-accessory { z-index: 5; margin-top: -95px; }
+
+        /* Панель гардероба (Внизу) */
+        #wardrobe { width: 100%; background: rgba(27, 13, 34, 0.85); border-top: 3px solid #ff758f; border-radius: 20px 20px 0 0; padding: 15px; box-sizing: border-box; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); z-index: 10; }
+        .tabs { display: flex; justify-content: space-around; margin-bottom: 12px; }
+        .tab-btn { background: rgba(255, 77, 109, 0.2); border: 1px solid #ff4d6d; color: #ff758f; padding: 8px 14px; font-weight: bold; border-radius: 8px; font-size: 13px; text-transform: uppercase; }
+        .tab-btn.active { background: #ff4d6d; color: #fff; box-shadow: 0 0 10px #ff4d6d; }
+        
+        .items-grid { display: flex; justify-content: center; gap: 15px; height: 75px; align-items: center; }
+        .item-card { width: 60px; height: 60px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255, 77, 109, 0.3); border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 32px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .item-card:active { transform: scale(0.9); border-color: #ff4d6d; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="title">👑 Салон Моды 👑</div>
+    
+    <!-- Сцена с принцессой -->
+    <div id="doll-stage">
+        <div id="layer-bg" class="doll-layer">🌸</div>
+        <div id="layer-body" class="doll-layer">👩🏼</div>
+        <div id="layer-hair" class="doll-layer">🎀</div>
+        <div id="layer-dress" class="doll-layer">👗</div>
+        <div id="layer-accessory" class="doll-layer">👑</div>
+    </div>
+    
+    <!-- Гардероб управления -->
+    <div id="wardrobe">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('hair')">Волосы</button>
+            <button class="tab-btn" onclick="switchTab('dress')">Одежда</button>
+            <button class="tab-btn" onclick="switchTab('acc')">Декор</button>
+            <button class="tab-btn" onclick="switchTab('bg')">Фон</button>
+        </div>
+        
+        <div class="items-grid" id="items-container">
+            <!-- Сюда скрипт сам добавит элементы одежды -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Варианты одежды (смайлики)
+    const options = {
+        hair: ['💇🏼‍♀️', '👱🏻‍♀️', '👩🏽‍🦱', '👩🏼‍🎤'], // Причёски
+        dress: ['👗', '🥻', '🥋', '👚'], // Костюмы и платья
+        acc: ['👑', '🎀', '🕶️', '🐱'], // Аксессуары на голову
+        bg: ['🌸', '✨', '🌌', '🏰'] // Волшебные фоны
+    };
+
+    let currentTab = 'hair';
+    let audioCtx = null;
+
+    function playDressUpSound() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+    }
+
+    function renderItems() {
+        const container = document.getElementById('items-container');
+        container.innerHTML = '';
+        
+        options[currentTab].forEach(emoji => {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.innerText = emoji;
+            card.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                changeLook(currentTab, emoji);
+            });
+            container.appendChild(card);
+        });
+    }
+
+    function changeLook(layer, emoji) {
+        document.getElementById('layer-' + layer).innerText = emoji;
+        playDressUpSound();
+    }
+
+    function switchTab(tabId) {
+        currentTab = tabId;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        renderItems();
+    }
+
+    // Стартовый вид куклы
+    document.getElementById('layer-hair').innerText = options.hair[0];
+    document.getElementById('layer-dress').innerText = options.dress[0];
+    document.getElementById('layer-accessory').innerText = options.acc[0];
+    document.getElementById('layer-bg').innerText = options.bg[0];
+
+    renderItems();
+</script>
+
+</body>
+</html>
